@@ -8,6 +8,15 @@ class Node:
         self.children.append(node)
 
 
+def RFdistance(root1, root2):
+    L1 = list_clades(root1)
+    L2 = list_clades(root2)
+
+    unique1 = [c for c in L1 if c not in L2]
+    unique2 = [c for c in L2 if c not in L1]
+
+    return len(unique1)+len(unique2)
+
 def list_clades(root):
     """
     Input: 
@@ -18,7 +27,7 @@ def list_clades(root):
     
     def clade_and_subclades(node):
         """
-        Auxiliary recursive functioon
+        Auxiliary recursive function
 
         Input:
             - instance of Node
@@ -36,7 +45,7 @@ def list_clades(root):
             sub, clade_c = clade_and_subclades(c)
             clade += clade_c
             sub_clades += sub
-        sub_clades.append(clade)
+        sub_clades.append(sorted(clade))
 
         return sub_clades, clade
 
