@@ -52,3 +52,23 @@ def list_clades(root):
     # main call
     L, _ = clade_and_subclades(root)
     return L
+
+def list_internal_leafsets(node):
+
+    # if is leaf
+    if len(node.children)==0:
+        return []
+
+    # local internal_leaf set
+    internal_leafset = []
+    for c in node.children:
+        if len(c.children)==0:
+            internal_leafset.append(c.label)
+
+    internal_leafsets = [internal_leafset]
+
+    # adding leafsets of the children
+    for c in node.children:
+        internal_leafsets += list_internal_leafsets(c)
+
+    return internal_leafsets
