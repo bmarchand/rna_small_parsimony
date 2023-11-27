@@ -1,0 +1,128 @@
+import os
+
+FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/')]
+
+rule all:
+    input:
+        expand('results/unannotated_tree_files/{family}_unannotated.tab', family=FAMILIES),
+        expand('results/rnafold_input/{family}_rnafold_input.fa', family=FAMILIES),
+        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES)
+        
+
+def pairing_info(ss_cons):
+    
+    parenthesis_systems = ['()','[]','{}','<>']
+
+    stacks = {}
+    for oc in parenthesis_systems:
+        stacks[oc] = []
+
+    d = {}
+    bps = []
+
+    for k, c in enumerate(ss_cons):
+        for oc in parenthesis_systems:
+            if c==oc[0]:
+                stacks[oc].append(k)
+            if c==oc[1]:
+                l = stacks[oc].pop()
+                d[k] = l
+                d[l] = k 
+                bps.append((k,l))
+
+    return d, bps
+
+def compatible(u,v):
+    return (u,v) in [('A','U'),('U','A'),('C','G'),('G','C'),('G','U'),('U','G')]
+
+rule rna_fold_application:
+    input:
+        'results/rnafold_input/{family}_rnafold_input.fa'
+    output:
+        'results/rnafold_output/{family}_rnafold_output.fa'
+    shell:
+        "RNAfold -C {input} >> {output}"
+
+rule rna_fold_input:
+    input:
+        'resources/seed_alignments/{family}.seed'
+    output:
+        'results/rnafold_input/{family}_rnafold_input.fa'
+    run:
+        SS_CONS_PREF = '#=GC SS_cons' 
+        for line in open(input[0]).readlines():
+            if line.startswith(SS_CONS_PREF):
+                ss_cons = line.split(' ')[-1].rstrip('\n')
+        
+        paired_dict, bps = pairing_info(ss_cons)
+
+        ss_cons = ss_cons.replace('A','.').replace('a','.').replace('B','.').replace('C','.')
+        ss_cons = ss_cons.replace('b','.').replace('c','.').replace('D','.').replace('E','.')
+        ss_cons = ss_cons.replace('d','.').replace('e','.')
+
+        f = open(output[0],'w')
+
+        for line in open(input[0]).readlines():
+            if line.startswith('#') or line in ['\n','//\n']:
+                continue
+
+            acc = line.split(' ')[0]
+            aligned_seq = list(line.split(' ')[-1].rstrip('\n'))
+            local_str = list(ss_cons.replace(':','.').replace('_','.').replace(',','.').replace('-','.').replace('[','(').replace(']',')').replace('{','(').replace('}',')'))
+            for i,j in bps:
+                if not compatible(aligned_seq[i],aligned_seq[j]):
+                    local_str[i] = '.'
+                    local_str[j] = '.'
+
+            print('>',acc,file=f)
+            print(''.join([c for c in aligned_seq if c!='-']), file=f)
+            print(''.join([c for k, c in enumerate(local_str) if aligned_seq[k]!='-']), file=f)
+             
+
+rule correct_seed_tree:
+    input:
+        'resources/tree_files/{family}.seed_tree'
+    output:
+        'results/corrected_tree_files/{family}_corrected.seed_tree'
+    run:
+        import re
+
+        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
+
+        slash_list = [k for k, c in enumerate(tree_desc) if c=='/']       
+
+        to_remove = []
+        for slash in slash_list:
+            problematic_stretch = re.split(r':[.0-9]+', tree_desc[slash:])[0]
+            p = min([k for k,c in enumerate(problematic_stretch) if not c.isnumeric() and c not in ['/','-']])
+            print(problematic_stretch)
+            problematic_stretch = problematic_stretch[p:]
+            to_remove.append(problematic_stretch)
+
+        for rem in to_remove:
+            tree_desc = tree_desc.replace(rem,'')
+        
+        f = open(output[0], 'w')
+        print(tree_desc, file=f)
+            
+
+rule tab_file:
+    input:
+        'results/corrected_tree_files/{family}_corrected.seed_tree'
+    output:
+        'results/unannotated_tree_files/{family}_unannotated.tab'
+    run:
+        import newick
+        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
+        tree = newick.loads(tree_desc)    
+
+        f = open(output[0],'w')     
+    
+        queue = [(tree[0],0)]
+        while len(queue) > 0:
+            current, d = queue.pop()
+            print('\t'*d+str(current.name), file=f)
+            for child in current.descendants:
+                queue = queue+[(child, d+1)]
+        
+        f.close()

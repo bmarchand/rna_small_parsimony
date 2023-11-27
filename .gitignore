@@ -1,3 +1,6 @@
 rnadist.egg-info/
 Rfam.seed
 *pyc
+experiments/rf_small_parsimony/results/
+experiments/rf_small_parsimony/resources/
+experiments/rf_small_parsimony/.snakemake
