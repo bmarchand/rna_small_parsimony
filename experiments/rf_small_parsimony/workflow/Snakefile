@@ -6,7 +6,9 @@ rule all:
     input:
         expand('results/unannotated_tree_files/{family}_unannotated.tab', family=FAMILIES),
         expand('results/rnafold_input/{family}_rnafold_input.fa', family=FAMILIES),
-        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES)
+        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES),
+        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
+        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
         
 
 def pairing_info(ss_cons):
@@ -34,6 +36,103 @@ def pairing_info(ss_cons):
 
 def compatible(u,v):
     return (u,v) in [('A','U'),('U','A'),('C','G'),('G','C'),('G','U'),('U','G')]
+
+rule gapless_final_structure_alignment:
+    input:
+        'results/aligned_structures/{family}_aligned_structures.stk'        
+    output:
+        'results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
+    run:
+        aligned_seqs = {}
+        accs = {}
+        for k, line in enumerate(open(input[0]).readlines()[1:]):
+            if line in ['\n','//\n'] or line.startswith('#=GF ID'):
+                continue
+            accs[k] = line.split(' ')[0]
+            aligned_seqs[k] = list(line.split(' ')[-1].rstrip('\n'))
+        
+        columns_to_remove = set([])
+        for k in aligned_seqs.keys(): 
+            for l, c in enumerate(aligned_seqs[k]):
+                if c=='-':
+                    columns_to_remove.add(l)
+        
+        for k in aligned_seqs.keys():
+            for l in sorted(list(columns_to_remove), key= lambda x : -x):
+                aligned_seqs[k].pop(l)
+        
+        f = open(output[0], 'w')
+    
+        print('# STOCKHOLM 1.0', file=f)
+        print('', file=f)
+        print('#=GF ID aligned structure, columns with gaps removed '+wildcards.family, file=f)
+        print('', file=f)
+
+        W = max([len(v) for _, v in accs.items()])
+        for k in aligned_seqs.keys():
+            print(accs[k].ljust(W, ' '), file=f, end=' ')
+            print(''.join(aligned_seqs[k]), file=f)
+
+        print('//', file=f)   
+        
+
+
+rule final_structure_alignment:
+    input:
+        rna_fold_output='results/rnafold_output/{family}_rnafold_output.fa',
+        seed_alignment='resources/seed_alignments/{family}.seed'
+    output:
+        'results/aligned_structures/{family}_aligned_structures.stk'        
+    run:
+        f = open(output[0], 'w')
+    
+        print('# STOCKHOLM 1.0', file=f)
+        print('', file=f)
+        print('#=GF ID aligned structure '+wildcards.family, file=f)
+        print('', file=f)
+        
+        # reading seed file
+        aligned_seqs = {}
+        accs = []
+
+        for line in open(input.seed_alignment).readlines():
+            if line.startswith('#') or line in ['\n','//\n']:
+                continue
+
+            acc = line.split(' ')[0]
+            aligned_seq = line.split(' ')[-1].rstrip('\n')
+
+            aligned_seqs[acc] = aligned_seq
+            accs.append(acc)
+
+        unaligned_structs = {}
+        # reading rnafold output
+        for line in open(input.rna_fold_output).readlines():
+            if line[0]=='>':
+                acc = line.split(' ')[-1].rstrip('\n')
+                continue
+            if len(line.split(' ')) > 1:
+                unaligned_structs[acc] = line.split(' ')[0]
+
+        # putting it all together
+        W = max([len(acc) for acc in accs])
+    
+        for acc in accs:
+            print(acc.ljust(W, ' '), file=f, end=' ')
+            print(aligned_seqs[acc], file=f)
+            print('#=GR'.ljust(W, ' '), file=f, end=' ')
+            aligned_str = ''
+            cnt = 0
+            for c in aligned_seqs[acc]:
+                if c!='-':
+                    aligned_str += unaligned_structs[acc][cnt]
+                    cnt += 1
+                if c=='-':
+                    aligned_str += '-'
+            print(aligned_str, file=f)
+
+        print('//', file=f)   
+        
 
 rule rna_fold_application:
     input:
