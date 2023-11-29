@@ -2,16 +2,26 @@ import os
 
 FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/')]
 
+# nice families: full agreement between tree file and seed file, non empty structure, and binary tree
+NICE_FAMILIES
+
+# the 'final target files' we want to produce
 rule all:
     input:
-        expand('results/unannotated_tree_files/{family}_unannotated.tab', family=FAMILIES),
-        expand('results/rnafold_input/{family}_rnafold_input.fa', family=FAMILIES),
-        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES),
-        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
-        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
+#        expand('results/unannotated_tree_files/{family}_unannotated.tab', family=FAMILIES),
+#        expand('results/rnafold_input/{family}_rnafold_input.fa', family=FAMILIES),
+#        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES),
+#        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
+#        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
+#        expand('results/small_parsimony_input/{family}_leaf_annotated.tab', family=FAMILIES)
+        expand('results/small_parsimony_results/{family}_fully_annotated.tab', family=FAMILIES)
         
 
+# useful functions
 def pairing_info(ss_cons):
+    '''
+    Getting the pairing information of a structure
+    '''
     
     parenthesis_systems = ['()','[]','{}','<>']
 
@@ -35,7 +45,78 @@ def pairing_info(ss_cons):
     return d, bps
 
 def compatible(u,v):
+    '''
+    are two nucleotides compatible
+    '''
     return (u,v) in [('A','U'),('U','A'),('C','G'),('G','C'),('G','U'),('U','G')]
+
+def check_well_parenthesized(s):
+    stack = []
+    for k,c in enumerate(s):
+        if c=='(':
+            stack.append(k)
+        if c==')':
+            stack.pop()
+    assert(len(stack)==0)
+
+rule fitch_algorithm_application:
+    input:
+        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+    output:
+        'results/small_parsimony_results/{family}_fully_annotated.tab'
+    run:
+        from rnadist.utils import fitch_with_trait_vector, clade_trait_dict_from_structs, PhyloTree 
+    
+        # TODO implement clade_trait_dict_from_structs
+        # TODO implement PhyloTree and its parse method
+        # TODO write script to select NICE families
+
+        phylo_T = PhyloTree()
+        phylo_T.parse(input[0])
+
+        # making dict: leaf_label -> str
+        str_dict = {}
+        for line in open(input[0]).readlines():
+            if line.find(':') >= 0:
+                acc = line.split(' ')[-3]
+                struct = line.split(' ')[-1]
+                str_dict[acc] = struct
+
+        # transforming it into leaf_label -> vector of traits
+        trait_dict = clade_trait_dict_from_structs(str_dict) 
+
+        full_vector_traits = fitch_with_trait_vector(phylo_T, trait_dict)
+
+        # TODO write the printing 
+    
+
+
+rule leaf_annotated_tree_file:
+    input:
+        tree='results/unannotated_tree_files/{family}_unannotated.tab',
+        str_alignment='results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
+    output:
+        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+    run:
+        acc_to_str = {}
+        for line in open(input.str_alignment).readlines():
+            if line.startswith('#=GR'):
+                acc_to_str[acc] = line.split(' ')[-1].rstrip('\n') 
+                continue
+            if line not in ['//\n','\n']:
+                acc = line.split(' ')[0] 
+        
+        f = open(output[0], 'w')
+
+        for line in open(input.tree).readlines():
+            if len(line.split(' ')) > 1:
+                acc = line.split(' ')[-1].rstrip('\n')
+                try:
+                    print(line.rstrip('\n'),':',acc_to_str[acc], file=f)
+                except KeyError:
+                    print(line.rstrip('\n'),':','UNKNOWN', file=f)
+            else:
+                f.write(line)
 
 rule gapless_final_structure_alignment:
     input:
@@ -45,17 +126,49 @@ rule gapless_final_structure_alignment:
     run:
         aligned_seqs = {}
         accs = {}
+        structure_annotations = {}
         for k, line in enumerate(open(input[0]).readlines()[1:]):
             if line in ['\n','//\n'] or line.startswith('#=GF ID'):
                 continue
             accs[k] = line.split(' ')[0]
             aligned_seqs[k] = list(line.split(' ')[-1].rstrip('\n'))
+            if accs[k] == '#=GR':
+                d, _ = pairing_info(aligned_seqs[k])
+                structure_annotations[k] = d
+
+        # full partner set: transitive closure of base pair relations
+        # between columns
+        partner_set = {}
+        for _, d in structure_annotations.items():
+            for i,j in d.items():
+                try:
+                    partner_set[i].add(j)
+                except KeyError:
+                    partner_set[i] = set([j])
+
+
+        # computing the transitive closure: while there is a change, keep trying
+        changed = True
+        while changed:
+            changed = False
+            # make the partners of the partners partners.
+            for i, S in partner_set.items():
+                for j in S:
+                    if len(S.symmetric_difference(partner_set[j])) > 0:
+                        partner_set[i] = S.union(partner_set[j])
+                        partner_set[j] = S.union(partner_set[j])
+                        changed = True
+                        break
+                        
         
         columns_to_remove = set([])
         for k in aligned_seqs.keys(): 
             for l, c in enumerate(aligned_seqs[k]):
                 if c=='-':
                     columns_to_remove.add(l)
+                    if l in partner_set.keys():
+                        columns_to_remove = columns_to_remove.union(partner_set[l]) 
+
         
         for k in aligned_seqs.keys():
             for l in sorted(list(columns_to_remove), key= lambda x : -x):
@@ -72,6 +185,9 @@ rule gapless_final_structure_alignment:
         for k in aligned_seqs.keys():
             print(accs[k].ljust(W, ' '), file=f, end=' ')
             print(''.join(aligned_seqs[k]), file=f)
+
+            if accs[k]=='#=GR':
+                check_well_parenthesized(aligned_seqs[k])
 
         print('//', file=f)   
         
@@ -207,7 +323,8 @@ rule correct_seed_tree:
 
 rule tab_file:
     input:
-        'results/corrected_tree_files/{family}_corrected.seed_tree'
+        'results/corrected_tree_files/{family}_corrected.seed_tree',
+        'resources/seed_alignments/{family}.seed'
     output:
         'results/unannotated_tree_files/{family}_unannotated.tab'
     run:
@@ -220,7 +337,13 @@ rule tab_file:
         queue = [(tree[0],0)]
         while len(queue) > 0:
             current, d = queue.pop()
-            print('\t'*d+str(current.name), file=f)
+            if str(current.name).find('_') >= 0:
+                first_part = str(current.name).split('_')[0]
+                second_part = str(current.name).split(first_part+'_')[-1] 
+                final_print = ' '.join([first_part, second_part])
+            else:
+                final_print = str(current.name)
+            print('\t'*d+final_print, file=f)
             for child in current.descendants:
                 queue = queue+[(child, d+1)]
         
