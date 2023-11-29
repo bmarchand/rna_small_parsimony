@@ -73,6 +73,11 @@ def list_internal_leafsets(node):
 
     return internal_leafsets
 
+def gapless_aligned_structs_to_clade_traits():
+    """
+    
+    """
+
 def fitch_with_trait_vector(phylo_T, vector_traits):
     """
     Input:
