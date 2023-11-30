@@ -89,6 +89,144 @@ class PhyloNode:
     def add_children(self, node1, node2):
         self.children = [node1, node2]
 
+def tree_tab_file_parse(tree_tab_lines):
+
+    if len(tree_tab_lines) > 1:
+    # not a leaf
+        first_line = tree_tab_lines[0]
+        root_node = PhyloNode(first_line.rstrip('\n'), False)
+        child1_lines = [tree_tab_lines[1]]
+        index = 2
+        while tree_tab_lines[index].startswith('\t\t'):
+            child1_lines.append(tree_tab_lines[index])
+            index += 1
+        child2_lines = tree_tab_lines[index:]
+
+        child1_lines = [l[1:] for l in child1_lines]
+        child2_lines = [l[1:] for l in child2_lines]
+
+        child1 = tree_tab_file_parse(child1_lines)
+        child2 = tree_tab_file_parse(child2_lines)
+        
+        root_note.add_children(child1, child2)
+
+    else:
+        first_line = tree_tab_lines[0]
+        root_node = PhyloNode(first_line.rstrip('\n'), True)
+
+    return root_node
+
+def list_leaves(node):
+    if node.isleaf:
+        return [node.label]
+    else:
+        L = []
+        for child in node.children:
+            L += list_leaves(child)
+        return L
+
+def depthk_bps(structure, depth=0):
+
+    L = []
+    stack = []
+
+    for k, c in enumerate(structure):
+        if c=='(':
+            stack.append(k)
+        if c==')':
+            l = stack.pop()
+            if len(stack)==depth:
+                L.append((k,l))
+
+    return L
+
+def build_tree(structure):
+
+    L0 = depthk_bps(structure)
+    assert(len(L0)==1)
+
+    root = Node()
+    i,j = L0[0]
+    Li = Node(label=i)
+    Lj = Node(label=j)
+    root.add_child(Li)
+    root.add_child(Lj)
+
+    # rest of the leaf set
+    IL = list(range(i+1,j,1))
+
+    L1 = depthk_bps(structure, depth=1)
+
+    for k,l in L1:
+        IL = [m for m in IL if m < k or m > l]
+        # creating some leaves
+        for m in IL:
+            if m < k:
+                Lm = Node(label=m)
+                root.add_child(Lm)
+
+        sub_structure = list(structure)
+        for index range(len(sub_structure)):
+            if index < k or index > m:
+                sub_structure[k] = '.'
+        child_kl = build_tree(sub_structure)
+
+        root.add_child(child_kl)
+
+    M = max([max(k,l) for k,l in L1])
+
+    for m in IL:
+        if m > M:
+            Lm = Node(label=m)
+            root.add_child(Lm)
+
+    return root
+    
+
+def aligned_gapless_structures_to_trait_vectors(str_dict):
+
+    lengths = set([len(val) for _, val in str_dict.items()])
+    assert(len(lengths)==1)
+    length = lengths.pop()
+
+    tree_dict = {}
+
+    trait_vector = VectorTraits(length)
+
+    clade_set = set([])            
+    for key, value in str_dict.items():
+        value = '('+value+')' # virtual overlapping arc 
+        tree_dict[key] = build_tree(value)
+        clade_set = clade_set.union(set(list_clades(tree_dict[key])))
+        
+    clade_set = list(clade_set) # order is random here
+
+    for key, value in tree_dict.items():
+        vector = []
+        for k, C in enumerate(clade_set):
+            if C in list_clades(value):
+                vector.append(1)
+            else:
+                vector.append(0)
+
+        trait_vector.traits[key] = vector
+
+    return trait_vector, clade_set
+
+def trait_vector_to_str(trait_vector, clade_set, N):
+
+    structure = '.'*N
+
+    for k, val in enumerate(trait_vector):
+        if val==1:
+            i = min(clade_set[k])
+            j = max(clade_set[k])
+            structure[i] = '('
+            structure[j] = ')'
+
+    return structure
+
+
 class VectorTraits:
 
     def __init__(self, N):
