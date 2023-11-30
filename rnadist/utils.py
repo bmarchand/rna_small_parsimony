@@ -77,6 +77,26 @@ def gapless_aligned_structs_to_clade_traits():
     """
     
     """
+    pass
+
+class PhyloNode:
+
+    def __init__(self, label, isleaf):
+        self.isleaf = isleaf
+        self.label = label
+        self.children = []
+
+    def add_children(self, node1, node2):
+        self.children = [node1, node2]
+
+class VectorTraits:
+
+    def __init__(self, N):
+        self.N = N
+        self.traits = {}
+
+    def add_trait(self, leaf, vector):
+        self.traits[leaf] = vector
 
 def fitch_with_trait_vector(phylo_T, vector_traits):
     """
@@ -99,10 +119,10 @@ def fitch_with_trait_vector(phylo_T, vector_traits):
     # auxiliary recursive function to fill B dictionary
     def fillB(c, node):
         if node.isleaf:
-            B[c][node.label] = set([vector_traits[node.label][c]])
+            B[c][node.label] = set([vector_traits.traits[node.label][c]])
             return B[c][node.label]
         else:
-            v, w = node.children
+            v, w = tuple(node.children)
             Bv = fillB(c, v)
             Bw = fillB(c, w)
             if len(Bv.intersection(Bw)) == 0:
@@ -128,7 +148,7 @@ def fitch_with_trait_vector(phylo_T, vector_traits):
             if F[c][node.label] in B[c][child.label]:
                 F[c][child.label] = F[c][node.label]
             else:
-                F[c][child.label] = B[c][child.label][0]
+                F[c][child.label] = list(B[c][child.label])[0]
             fillF(c, child)
 
     # for each trait, fill F for root and call on root
@@ -142,10 +162,10 @@ def fitch_with_trait_vector(phylo_T, vector_traits):
     # final annotation of the tree (pure interface issue, nothing is computed)
     def build_vector_traits(node):
         if not node.isleaf:
-            vector = np.zeros(N)
+            vector = [0 for _ in range(N)]
             for c in range(N):
                 vector[c] = F[c][node.label]
-            vector_traits[node.label] = vector
+            vector_traits.traits[node.label] = vector
             for child in node.children:
                 build_vector_traits(child)
 
