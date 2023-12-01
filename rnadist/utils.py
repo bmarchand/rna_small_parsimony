@@ -95,12 +95,17 @@ def tree_tab_file_parse(tree_tab_lines):
     # not a leaf
         first_line = tree_tab_lines[0]
         root_node = PhyloNode(first_line.rstrip('\n'), False)
+
+        # children
         child1_lines = [tree_tab_lines[1]]
         index = 2
         while tree_tab_lines[index].startswith('\t\t'):
             child1_lines.append(tree_tab_lines[index])
             index += 1
-        child2_lines = tree_tab_lines[index:]
+        child2_lines = [tree_tab_lines[index]]
+        while tree_tab_lines[index].startswith('\t\t'):
+            child2_lines.append(tree_tab_lines[index])
+            index += 1
 
         child1_lines = [l[1:] for l in child1_lines]
         child2_lines = [l[1:] for l in child2_lines]
@@ -108,7 +113,7 @@ def tree_tab_file_parse(tree_tab_lines):
         child1 = tree_tab_file_parse(child1_lines)
         child2 = tree_tab_file_parse(child2_lines)
         
-        root_note.add_children(child1, child2)
+        root_node.add_children(child1, child2)
 
     else:
         first_line = tree_tab_lines[0]
@@ -136,7 +141,7 @@ def depthk_bps(structure, depth=0):
         if c==')':
             l = stack.pop()
             if len(stack)==depth:
-                L.append((k,l))
+                L.append((l,k))
 
     return L
 
@@ -158,6 +163,8 @@ def build_tree(structure):
     L1 = depthk_bps(structure, depth=1)
 
     for k,l in L1:
+        assert(structure[k]=='(')
+        assert(structure[l]==')')
         IL = [m for m in IL if m < k or m > l]
         # creating some leaves
         for m in IL:
@@ -166,22 +173,36 @@ def build_tree(structure):
                 root.add_child(Lm)
 
         sub_structure = list(structure)
-        for index range(len(sub_structure)):
-            if index < k or index > m:
-                sub_structure[k] = '.'
-        child_kl = build_tree(sub_structure)
+        for index in range(len(sub_structure)):
+            if index < k or index > l:
+                sub_structure[index] = '.'
+        child_kl = build_tree(''.join(sub_structure))
 
         root.add_child(child_kl)
 
-    M = max([max(k,l) for k,l in L1])
-
-    for m in IL:
-        if m > M:
+    # creating the rest of the leaves
+    if len(L1) > 0:
+        M = max([max(k,l) for k,l in L1])
+        for m in IL:
+            if m > M:
+                Lm = Node(label=m)
+                root.add_child(Lm)
+    else:
+        for m in IL:
             Lm = Node(label=m)
             root.add_child(Lm)
 
+
     return root
     
+def check_well_parenthesized(s):
+    stack = []
+    for k,c in enumerate(s):
+        if c=='(':
+            stack.append(k)
+        if c==')':
+            stack.pop()
+    assert(len(stack)==0)
 
 def aligned_gapless_structures_to_trait_vectors(str_dict):
 
@@ -196,8 +217,10 @@ def aligned_gapless_structures_to_trait_vectors(str_dict):
     clade_set = set([])            
     for key, value in str_dict.items():
         value = '('+value+')' # virtual overlapping arc 
+        check_well_parenthesized(value)
         tree_dict[key] = build_tree(value)
-        clade_set = clade_set.union(set(list_clades(tree_dict[key])))
+        for c in list_clades(tree_dict[key]):
+            clade_set.add(frozenset(c))
         
     clade_set = list(clade_set) # order is random here
 
