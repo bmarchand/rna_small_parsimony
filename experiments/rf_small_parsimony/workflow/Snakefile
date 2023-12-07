@@ -2,6 +2,9 @@ import os
 
 FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/')]
 
+# Filtering families to retain only interesting ones, i.e:
+#       1. For which there is agreement between the seed file and tree file compositions
+#       2. With non empty structures at the leaves
 not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
@@ -33,6 +36,14 @@ rule all:
 def pairing_info(ss_cons):
     '''
     Getting the pairing information of a structure
+    
+    Input:
+        - structure as string in dot bracket notation
+
+    Output:
+        - d: dictionary which associates each paired
+        position to its partner
+        - bps: the list of base pairs
     '''
     
     parenthesis_systems = ['()','[]','{}','<>']
@@ -58,11 +69,17 @@ def pairing_info(ss_cons):
 
 def compatible(u,v):
     '''
-    are two nucleotides compatible
+    are two nucleotides compatible ?
     '''
     return (u,v) in [('A','U'),('U','A'),('C','G'),('G','C'),('G','U'),('U','G')]
 
 def check_well_parenthesized(s):
+    '''
+        Input:
+            - string = structure in dot bracket notation
+        Output:
+            - Boolean: is it well-parenthesized or not ?
+    '''
     stack = []
     for k,c in enumerate(s):
         if c=='(':
@@ -71,7 +88,7 @@ def check_well_parenthesized(s):
             stack.pop()
     assert(len(stack)==0)
 
-rule fitch_algorithm_application:
+rule fitch_algorithm_application_on_trait_vectors:
     input:
         'results/small_parsimony_input/{family}_leaf_annotated.tab'
     output:
@@ -106,7 +123,7 @@ rule fitch_algorithm_application:
                 queue.append((child, d+1))
 
 
-rule leaf_annotated_tree_file:
+rule producing_small_parsimony_input:
     input:
         tree='results/unannotated_tree_files/{family}_unannotated.tab',
         str_alignment='results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
@@ -208,7 +225,7 @@ rule gapless_final_structure_alignment:
         
 
 
-rule final_structure_alignment:
+rule making_structured_sequences_alignments:
     input:
         rna_fold_output='results/rnafold_output/{family}_rnafold_output.fa',
         seed_alignment='resources/seed_alignments/{family}.seed'
@@ -273,7 +290,7 @@ rule rna_fold_application:
     shell:
         "RNAfold -C {input} >> {output}"
 
-rule rna_fold_input:
+rule making_rna_fold_input:
     input:
         'resources/seed_alignments/{family}.seed'
     output:
@@ -309,7 +326,7 @@ rule rna_fold_input:
             print(''.join([c for k, c in enumerate(local_str) if aligned_seq[k]!='-']), file=f)
              
 
-rule correct_seed_tree:
+rule correcting_seed_tree:
     input:
         'resources/tree_files/{family}.seed_tree'
     output:
@@ -336,7 +353,7 @@ rule correct_seed_tree:
         print(tree_desc, file=f)
             
 
-rule tab_file:
+rule from_newick_to_tab_file:
     input:
         'results/corrected_tree_files/{family}_corrected.seed_tree',
         'resources/seed_alignments/{family}.seed'
