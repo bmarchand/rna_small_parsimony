@@ -4,10 +4,16 @@ FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/'
 
 not_nice = []
 for family in FAMILIES:
+    max_num_bps = 0
     for line in open('results/small_parsimony_input/'+family+'_leaf_annotated.tab').readlines():
         if line.find('UNKNOWN') >= 0:           
             not_nice.append(family)
             break       
+        if line.find(':') >= 0:
+            struct = line.split(' ')[-1].rstrip('\n')
+            max_num_bps = max(max_num_bps, struct.count('('))
+    if max_num_bps==0:
+        not_nice.append(family)
 
 NICE_FAMILIES = [fam for fam in FAMILIES if fam not in not_nice]
 
@@ -81,8 +87,8 @@ rule fitch_algorithm_application:
         str_dict = {}
         for line in open(input[0]).readlines():
             if line.find(':') >= 0:
-                acc = line.split(' ')[-3]
-                struct = line.split(' ')[-1]
+                acc = line.split(' ')[-3].lstrip('\t')
+                struct = line.split(' ')[-1].rstrip('\n')
                 str_dict[acc] = struct
 
         # transforming it into leaf_label -> vector of traits
@@ -90,12 +96,14 @@ rule fitch_algorithm_application:
 
         full_vector_traits = fitch_with_trait_vector(phylo_T, trait_vectors)
 
+        f = open(output[0],'w')
+
         queue = [(phylo_T, 0)]
         while len(queue) > 0:
             node, d = queue.pop()
-            print('\t'*d+node.label+' :', trait_vector_to_str(full_vector_traits.traits[node.label])) 
-            for child in node.children:
-                queue.append((node, d+1))
+            print('\t'*d+node.label+' :', trait_vector_to_str(full_vector_traits.traits[node.label], ordered_clade_list, full_vector_traits.N), file=f) 
+            for child in node.children[::-1]:
+                queue.append((child, d+1))
 
 
 rule leaf_annotated_tree_file:
@@ -116,8 +124,8 @@ rule leaf_annotated_tree_file:
         f = open(output[0], 'w')
 
         for line in open(input.tree).readlines():
-            if len(line.split(' ')) > 1:
-                acc = line.split(' ')[-1].rstrip('\n')
+            if len(line.split('_')) > 1:
+                acc = line.split('_')[-1].rstrip('\n')
                 try:
                     print(line.rstrip('\n'),':',acc_to_str[acc], file=f)
                 except KeyError:
@@ -345,13 +353,18 @@ rule tab_file:
         num = 0
         while len(queue) > 0:
             current, d = queue.pop()
-            if str(current.name).find('_') >= 0:
-                first_part = str(current.name).split('_')[0]
-                second_part = str(current.name).split(first_part+'_')[-1] 
-                final_print = ' '.join([first_part, second_part])
+            if str(current.name).find('/') >= 0:
+                accession = str(current.name).split('_')[-1]   
+                print('\t'*d+str(num)+'_'+accession, file=f)
             else:
-                final_print = str(current.name)
-            print('\t'*d+str(num)+'_'+final_print, file=f)
+                print('\t'*d+str(num), file=f)
+#            if str(current.name).find('_') >= 0:
+#                first_part = str(current.name).split('_')[0]
+#                second_part = str(current.name).split(first_part+'_')[-1] 
+#                final_print = ''.join([first_part, second_part])
+#            else:
+#                final_print = str(current.name)
+#            print('\t'*d+str(num)+'_'+final_print, file=f)
             num += 1
             for child in current.descendants:
                 queue = queue+[(child, d+1)]

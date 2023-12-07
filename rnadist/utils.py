@@ -45,7 +45,7 @@ def list_clades(root):
             sub, clade_c = clade_and_subclades(c)
             clade += clade_c
             sub_clades += sub
-        sub_clades.append(sorted(clade))
+        sub_clades.append(frozenset(sorted(clade)))
 
         return sub_clades, clade
 
@@ -81,20 +81,24 @@ def gapless_aligned_structs_to_clade_traits():
 
 class PhyloNode:
 
-    def __init__(self, label, isleaf):
+    def __init__(self, label, isleaf, annotation=None):
         self.isleaf = isleaf
         self.label = label
+        self.annotation = annotation
         self.children = []
 
     def add_children(self, node1, node2):
         self.children = [node1, node2]
+
 
 def tree_tab_file_parse(tree_tab_lines):
 
     if len(tree_tab_lines) > 1:
     # not a leaf
         first_line = tree_tab_lines[0]
-        root_node = PhyloNode(first_line.rstrip('\n'), False)
+        root_node = PhyloNode(first_line.split(' ')[0].rstrip('\n'), False)
+        if first_line.find(':') >=0:
+            root_node.annotation = first_line.split(' ')[-1].rstrip('\n')
 
         # children
         child1_lines = [tree_tab_lines[1]]
@@ -103,7 +107,8 @@ def tree_tab_file_parse(tree_tab_lines):
             child1_lines.append(tree_tab_lines[index])
             index += 1
         child2_lines = [tree_tab_lines[index]]
-        while tree_tab_lines[index].startswith('\t\t'):
+        index += 1
+        while index < len(tree_tab_lines) and tree_tab_lines[index].startswith('\t\t'):
             child2_lines.append(tree_tab_lines[index])
             index += 1
 
@@ -117,7 +122,9 @@ def tree_tab_file_parse(tree_tab_lines):
 
     else:
         first_line = tree_tab_lines[0]
-        root_node = PhyloNode(first_line.rstrip('\n'), True)
+        root_node = PhyloNode(first_line.split(' ')[0].rstrip('\n'), True)
+        if first_line.find(':') >=0:
+            root_node.annotation = first_line.split(' ')[-1].rstrip('\n')
 
     return root_node
 
@@ -238,7 +245,7 @@ def aligned_gapless_structures_to_trait_vectors(str_dict):
 
 def trait_vector_to_str(trait_vector, clade_set, N):
 
-    structure = '.'*N
+    structure = list('.'*(N+2))
 
     for k, val in enumerate(trait_vector):
         if val==1:
@@ -247,7 +254,7 @@ def trait_vector_to_str(trait_vector, clade_set, N):
             structure[i] = '('
             structure[j] = ')'
 
-    return structure
+    return ''.join(structure[1:-1])
 
 
 class VectorTraits:
