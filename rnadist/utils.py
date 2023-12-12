@@ -7,6 +7,18 @@ class Node:
     def add_child(self, node):
         self.children.append(node)
 
+class PhyloNode:
+
+    def __init__(self, label, isleaf, annotation=None):
+        self.isleaf = isleaf
+        self.label = label
+        self.annotation = annotation
+        self.children = []
+
+    def add_children(self, node1, node2):
+        self.children = [node1, node2]
+
+
 
 def RFdistance(root1, root2):
     L1 = list_clades(root1)
@@ -37,7 +49,7 @@ def list_clades(root):
                 * L a list of all clades below node, including C
         """
         if len(node.children)==0:
-            return [[node.label]], [node.label]
+            return [frozenset([node.label])], [node.label]
 
         sub_clades = []
         clade = []
@@ -79,17 +91,6 @@ def gapless_aligned_structs_to_clade_traits():
     """
     pass
 
-class PhyloNode:
-
-    def __init__(self, label, isleaf, annotation=None):
-        self.isleaf = isleaf
-        self.label = label
-        self.annotation = annotation
-        self.children = []
-
-    def add_children(self, node1, node2):
-        self.children = [node1, node2]
-
 
 def tree_tab_file_parse(tree_tab_lines):
 
@@ -101,24 +102,21 @@ def tree_tab_file_parse(tree_tab_lines):
             root_node.annotation = first_line.split(' ')[-1].rstrip('\n')
 
         # children
-        child1_lines = [tree_tab_lines[1]]
-        index = 2
-        while tree_tab_lines[index].startswith('\t\t'):
-            child1_lines.append(tree_tab_lines[index])
-            index += 1
-        child2_lines = [tree_tab_lines[index]]
-        index += 1
-        while index < len(tree_tab_lines) and tree_tab_lines[index].startswith('\t\t'):
-            child2_lines.append(tree_tab_lines[index])
-            index += 1
+        children_lines = {}
 
-        child1_lines = [l[1:] for l in child1_lines]
-        child2_lines = [l[1:] for l in child2_lines]
+        for k, line in enumerate(tree_tab_lines[1:]):
+            if not line.startswith('\t\t'):
+                children_lines[line] = []
+                current_line = line
 
-        child1 = tree_tab_file_parse(child1_lines)
-        child2 = tree_tab_file_parse(child2_lines)
-        
-        root_node.add_children(child1, child2)
+            if line.startswith('\t\t'):
+                children_lines[current_line].append(line)
+
+        children_lines = [[key]+value for key, value in sorted(children_lines.items(), key=lambda u: u[0])]
+        children_lines = [[l[1:] for l in child] for child in children_lines]
+
+        for child in children_lines:
+            root_node.children.append(tree_tab_file_parse(child))
 
     else:
         first_line = tree_tab_lines[0]

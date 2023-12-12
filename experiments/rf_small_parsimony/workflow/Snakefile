@@ -98,6 +98,7 @@ rule fitch_algorithm_application_on_trait_vectors:
         from rnadist.utils import aligned_gapless_structures_to_trait_vectors
         from rnadist.utils import  PhyloNode, tree_tab_file_parse, trait_vector_to_str 
 
+        # parsing input tree file
         phylo_T = tree_tab_file_parse(open(input[0]).readlines()) 
 
         # making dict: leaf_label -> str
