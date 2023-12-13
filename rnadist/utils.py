@@ -64,6 +64,8 @@ def RFdistance(root1, root2):
 
     return len(unique1)+len(unique2)
 
+
+
 def C2_ILMedian(input_structures):
 
     # adding virtual overarching base pair
@@ -388,6 +390,66 @@ class VectorTraits:
 
     def add_trait(self, leaf, vector):
         self.traits[leaf] = vector
+
+
+def median_based_heuristic(phylo_T, 
+                           str_dict, 
+                           rounds=10, 
+                           until_converge=False, 
+                           median_function=C2_ILMedian):
+    """
+        - phylo_T: phylogenetic tree.
+        - str_dict: dictionary label -> str. only on leaves at first, to complete
+        and return
+    """
+    
+    random_key = np.random.choice(str_dict.keys())
+    random_input_str = str_dict[random_key]
+
+    queue = [phylo_T]
+    while len(queue) > 0:
+        node = queue.pop()
+        str_dict[node.label] = random_input_str
+
+    cnt = 0
+    keep_going = True
+    while keep_going:
+        keep_going = False
+        cnt += 1
+
+        queue = [(phylo_T, c) for c in phylo_T.children]
+
+        smth_changed = False
+        while len(queue) > 0 and not smth_changed:
+            parent, child = queue.pop()
+            if len(child.children) > 0:
+                # current sum over edges around node
+                current_cost = IL_distance(str_dict[parent.label], 
+                                           str_dict[child.label])
+                for grand_child in child.children:
+                    current_cost += IL_distance(str_dict[child.label],
+                                                str_dict[grand_child.label])
+
+                # median computation
+                neighbor_list = [parent] + child.children
+                str_list = [str_dict[n.label] for n in neighbor_list]
+                median = median_function(str_list)
+
+                # new sum over edges around node
+                new_cost = IL_distance(str_dict[parent.label], 
+                                       median)
+                for grand_child in child.children:
+                    new_cost += IL_distance(str_dict[child.label],
+                                                str_dict[grand_child.label])
+                
+                # if new cost better, change label of node to median
+                if new_cost < current_cost:
+                    str_dict[child.label] = median
+                    smth_changed = True
+
+        # do we keep going ? count condition, and whether smth changed
+        if cnt < rounds and smth_changed:
+            keep_going = True
 
 def fitch_with_trait_vector(phylo_T, vector_traits):
     """
