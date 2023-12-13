@@ -73,9 +73,13 @@ rule fitch_algorithm_application_on_trait_vectors:
                 acc = line.split(' ')[-3].lstrip('\t')
                 struct = line.split(' ')[-1].rstrip('\n')
                 str_dict[acc] = struct
+                L = len(struct)
 
         # transforming it into leaf_label -> vector of traits
         trait_vectors, ordered_clade_list = aligned_gapless_structures_to_trait_vectors(str_dict) 
+
+        for key, val in str_dict.items():
+            assert(trait_vector_to_str(trait_vectors.traits[key], ordered_clade_list, L)==val)
 
         full_vector_traits = fitch_with_trait_vector(phylo_T, trait_vectors)
 
@@ -84,7 +88,7 @@ rule fitch_algorithm_application_on_trait_vectors:
         queue = [(phylo_T, 0)]
         while len(queue) > 0:
             node, d = queue.pop()
-            print('\t'*d+node.label+' :', trait_vector_to_str(full_vector_traits.traits[node.label], ordered_clade_list, full_vector_traits.N), file=f) 
+            print('\t'*d+node.label+' :', trait_vector_to_str(full_vector_traits.traits[node.label], ordered_clade_list, L), file=f) 
             for child in node.children[::-1]:
                 queue.append((child, d+1))
 

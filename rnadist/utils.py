@@ -190,6 +190,7 @@ def list_clades(root):
 
     # main call
     L, _ = clade_and_subclades(root)
+    L = [c for c in L if len(c)>1]
     return L
 
 def list_internal_leafsets(node):
@@ -338,23 +339,26 @@ def check_well_parenthesized(s):
 
 def aligned_gapless_structures_to_trait_vectors(str_dict):
 
+    # CHECK: asserting that all structures are of the same length
     lengths = set([len(val) for _, val in str_dict.items()])
     assert(len(lengths)==1)
-    length = lengths.pop()
+    # END CHECK
 
+    # building tree objects for each RNA, and getting full set of clades
     tree_dict = {}
+    clade_set = set([])  
 
-    trait_vector = VectorTraits(length)
-
-    clade_set = set([])            
     for key, value in str_dict.items():
         value = '('+value+')' # virtual overlapping arc 
         check_well_parenthesized(value)
         tree_dict[key] = build_tree(value)
         for c in list_clades(tree_dict[key]):
-            clade_set.add(frozenset(c))
+            if len(c)<len(value):
+                clade_set.add(frozenset(c))
         
     clade_set = list(clade_set) # order is random here
+    
+    trait_vector = VectorTraits(len(clade_set))
 
     for key, value in tree_dict.items():
         vector = []
@@ -369,6 +373,15 @@ def aligned_gapless_structures_to_trait_vectors(str_dict):
     return trait_vector, clade_set
 
 def trait_vector_to_str(trait_vector, clade_set, N):
+    '''
+    Input:
+        - trait_vector: 0s and 1s corresponding to the presence/absence of 
+        clades of clade_set
+        - clade_set: ordered list of clades
+        - N: RNA length (number of positions)
+    Output:
+        structure
+    '''
 
     structure = list('.'*(N+2))
 

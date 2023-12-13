@@ -15,7 +15,7 @@ def test_list_clades():
     I2.add_child(L3)
     I2.add_child(L4)
 
-    L = [[1],[2],[1,2],[3],[4],[3,4],[1,2,3,4]]
+    L = [[1,2],[3,4],[1,2,3,4]]
     res = [frozenset(s) for s in L]
 
     print(list_clades(root))
