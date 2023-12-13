@@ -1,3 +1,5 @@
+import numpy as np
+
 class Node:
 
     def __init__(self, label=None):
@@ -18,6 +20,39 @@ class PhyloNode:
     def add_children(self, node1, node2):
         self.children = [node1, node2]
 
+def pairing_info(ss_cons):
+    '''
+    Getting the pairing information of a structure
+    
+    Input:
+        - structure as string in dot bracket notation
+
+    Output:
+        - d: dictionary which associates each paired
+        position to its partner
+        - bps: the list of base pairs
+    '''
+    
+    parenthesis_systems = ['()','[]','{}','<>']
+
+    stacks = {}
+    for oc in parenthesis_systems:
+        stacks[oc] = []
+
+    d = {}
+    bps = []
+
+    for k, c in enumerate(ss_cons):
+        for oc in parenthesis_systems:
+            if c==oc[0]:
+                stacks[oc].append(k)
+            if c==oc[1]:
+                l = stacks[oc].pop()
+                d[k] = l
+                d[l] = k 
+                bps.append((k,l))
+
+    return d, bps
 
 
 def RFdistance(root1, root2):
@@ -28,6 +63,96 @@ def RFdistance(root1, root2):
     unique2 = [c for c in L2 if c not in L1]
 
     return len(unique1)+len(unique2)
+
+def C2_ILMedian(input_structures):
+
+    # adding virtual overarching base pair
+    input_structures = ['('+s+')' for s in input_structures]
+
+    # number of positions
+    N = len(input_structures[0])
+
+    # base pairs
+    bps = []
+    for s in input_structures:
+        assert(len(s)==N)
+        _, l = pairing_info(s)
+        bps += l
+
+    # input leaf sets
+    input_leaf_sets = []
+    input_leaf_set_dict = {}
+    for s in input_structures:
+        tree = build_tree(s)
+        ILs = list_internal_leafsets(tree)
+        input_leaf_sets += ILs
+        input_leaf_set_dict[s] = ILs 
+
+    # auxiliary recursive function 1: optimal score
+    print(input_leaf_sets)
+    print(N)
+
+    def optimal_score(i,j):
+        print("call",i,j)
+        if (i,j) in C.keys():
+            print('-> already computed')
+            return C[(i,j)]
+
+        C[(i,j)] = np.inf
+        for I in input_leaf_sets:
+            if min(I)==i and max(I)==j:
+                print('candidate I', I)
+                score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
+                holes = IL_holes(I)
+                for i_h, j_h in holes:
+                    score_with_I += optimal_score(i_h+1,j_h-1)
+
+                if score_with_I < C[(i,j)]:
+                    C[(i,j)] = score_with_I
+
+        return C[(i,j)]
+
+    # auxiliary recursive function 2: backtrace
+    def backtrace(i,j):
+        for I in input_leaf_sets:
+            if min(I)==i and max(I)==j:
+                print(i,j,':','candidate leaft set', I)
+                score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
+                holes = IL_holes(I)
+                print('score with & holes',score_with_I, holes)
+                for i_h, j_h in holes:
+                    score_with_I += C[(i_h+1,j_h-1)]
+
+                if score_with_I==C[(i,j)]:
+                    result = [I]
+                    for i_h, j_h in IL_holes(I):
+                        result += backtrace(i_h+1, j_h-1)
+                    return result
+
+    
+    C = {} # DP table
+
+    OPT = optimal_score(0, N-1)
+    print(C)
+        
+    ILs = backtrace(0,N-1)
+
+    median = list('.'*N)
+
+    for I in ILs:
+        print('I from final ILs list', I)
+        median[min(I)] = '('
+        median[max(I)] = ')'
+
+    return ''.join(median[1:-1])
+
+def IL_holes(I):
+    I = sorted(I)
+    holes = []
+    for k in range(len(I)-1):
+        if I[k+1]>I[k]+1:
+            holes.append((I[k],I[k+1]))
+    return holes
 
 def list_clades(root):
     """
@@ -288,13 +413,20 @@ def fitch_with_trait_vector(phylo_T, vector_traits):
             B[c][node.label] = set([vector_traits.traits[node.label][c]])
             return B[c][node.label]
         else:
-            v, w = tuple(node.children)
-            Bv = fillB(c, v)
-            Bw = fillB(c, w)
-            if len(Bv.intersection(Bw)) == 0:
-                B[c][node.label] = Bv.union(Bw)
-            else:
-                B[c][node.label] = Bv.intersection(Bw)
+            num_1 = 0
+            num_0 = 0
+            for v in node.children:
+                Bc = fillB(c, v)
+                if Bc==set([1]):
+                    num_1 += 1
+                if Bc==set([0]):
+                    num_0 += 1
+            if num_0 > num_1:
+                B[c][node.label] = set([0])
+            elif num_0 < num_1:
+                B[c][node.label] = set([1])
+            elif num_0==num_1:
+                B[c][node.label] = set([0,1])
 
             return B[c][node.label]
 

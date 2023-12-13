@@ -30,42 +30,7 @@ rule all:
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input/{family}_leaf_annotated.tab', family=FAMILIES)
         expand('results/small_parsimony_results/{family}_fully_annotated.tab', family=NICE_FAMILIES)
-        
 
-# useful functions
-def pairing_info(ss_cons):
-    '''
-    Getting the pairing information of a structure
-    
-    Input:
-        - structure as string in dot bracket notation
-
-    Output:
-        - d: dictionary which associates each paired
-        position to its partner
-        - bps: the list of base pairs
-    '''
-    
-    parenthesis_systems = ['()','[]','{}','<>']
-
-    stacks = {}
-    for oc in parenthesis_systems:
-        stacks[oc] = []
-
-    d = {}
-    bps = []
-
-    for k, c in enumerate(ss_cons):
-        for oc in parenthesis_systems:
-            if c==oc[0]:
-                stacks[oc].append(k)
-            if c==oc[1]:
-                l = stacks[oc].pop()
-                d[k] = l
-                d[l] = k 
-                bps.append((k,l))
-
-    return d, bps
 
 def compatible(u,v):
     '''
@@ -157,6 +122,7 @@ rule gapless_final_structure_alignment:
     output:
         'results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
     run:
+        from rnadist.utils import pairing_info
         aligned_seqs = {}
         accs = {}
         structure_annotations = {}
@@ -297,6 +263,7 @@ rule making_rna_fold_input:
     output:
         'results/rnafold_input/{family}_rnafold_input.fa'
     run:
+        from rnadist.utils import pairing_info
         SS_CONS_PREF = '#=GC SS_cons' 
         for line in open(input[0]).readlines():
             if line.startswith(SS_CONS_PREF):
