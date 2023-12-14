@@ -17,3 +17,11 @@ def test2_C2_ILMedian():
     m = C2_ILMedian([s1,s2,s3])
 
     assert(s1==m)
+
+def test3_buggy_case():
+
+    strs = ['((.)(.)(.))', 
+            '((.)(.)(.))', 
+            '((.)(.)(.))']
+    
+    m = C2_ILMedian(strs)

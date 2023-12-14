@@ -29,7 +29,8 @@ rule all:
 #        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input/{family}_leaf_annotated.tab', family=FAMILIES)
-        expand('results/small_parsimony_results/{family}_fully_annotated.tab', family=NICE_FAMILIES)
+        expand('results/small_parsimony_results/{family}_fully_annotated.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES)
 
 
 def compatible(u,v):
@@ -52,6 +53,40 @@ def check_well_parenthesized(s):
         if c==')':
             stack.pop()
     assert(len(stack)==0)
+
+rule median_based_heuristic:
+    input:
+        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+    output:
+        'results/small_parsimony_results_median_heuristic/{family}_fully_annotated_median_heuristic.tab'
+    run:
+        from rnadist.utils import median_based_heuristic
+        from rnadist.utils import tree_tab_file_parse
+
+        # parsing input tree file
+        phylo_T = tree_tab_file_parse(open(input[0]).readlines()) 
+
+        # making dict: leaf_label -> str
+        str_dict = {}
+        for line in open(input[0]).readlines():
+            if line.find(':') >= 0:
+                acc = line.split(' ')[-3].lstrip('\t')
+                struct = line.split(' ')[-1].rstrip('\n')
+                str_dict[acc] = struct
+          
+        # heuristic call 
+        str_dict = median_based_heuristic(phylo_T, str_dict)
+        
+        # output writing
+        f = open(output[0],'w')
+
+        queue = [(phylo_T, 0)]
+        while len(queue) > 0:
+            node, d = queue.pop()
+            print('\t'*d+node.label+' :', str_dict[node.label], file=f) 
+            for child in node.children[::-1]:
+                queue.append((child, d+1))
+
 
 rule fitch_algorithm_application_on_trait_vectors:
     input:

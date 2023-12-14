@@ -91,21 +91,16 @@ def C2_ILMedian(input_structures):
         input_leaf_set_dict[s] = ILs 
 
     # auxiliary recursive function 1: optimal score
-    print(input_leaf_sets)
-    print(N)
 
     def optimal_score(i,j):
-        print("call",i,j)
         if (i,j) in C.keys():
-            print('-> already computed')
             return C[(i,j)]
 
         C[(i,j)] = np.inf
         for I in input_leaf_sets:
-            if min(I)==i and max(I)==j:
-                print('candidate I', I)
+            if min(I)==i or max(I)==j:
                 score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
-                holes = IL_holes(I)
+                holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
                     score_with_I += optimal_score(i_h+1,j_h-1)
 
@@ -117,17 +112,15 @@ def C2_ILMedian(input_structures):
     # auxiliary recursive function 2: backtrace
     def backtrace(i,j):
         for I in input_leaf_sets:
-            if min(I)==i and max(I)==j:
-                print(i,j,':','candidate leaft set', I)
+            if min(I)==i or max(I)==j:
                 score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
-                holes = IL_holes(I)
-                print('score with & holes',score_with_I, holes)
+                holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
                     score_with_I += C[(i_h+1,j_h-1)]
 
                 if score_with_I==C[(i,j)]:
                     result = [I]
-                    for i_h, j_h in IL_holes(I):
+                    for i_h, j_h in IL_holes(I,i,j):
                         result += backtrace(i_h+1, j_h-1)
                     return result
 
@@ -135,25 +128,28 @@ def C2_ILMedian(input_structures):
     C = {} # DP table
 
     OPT = optimal_score(0, N-1)
-    print(C)
         
     ILs = backtrace(0,N-1)
 
     median = list('.'*N)
 
     for I in ILs:
-        print('I from final ILs list', I)
         median[min(I)] = '('
         median[max(I)] = ')'
 
     return ''.join(median[1:-1])
 
-def IL_holes(I):
+def IL_holes(I,i,j):
     I = sorted(I)
     holes = []
     for k in range(len(I)-1):
         if I[k+1]>I[k]+1:
             holes.append((I[k],I[k+1]))
+
+    if i not in I:
+        holes = [(i-1,I[0])]+holes
+    if j not in I:
+        holes += [(I[-1],j+1)]
     return holes
 
 def list_clades(root):
@@ -212,6 +208,19 @@ def list_internal_leafsets(node):
         internal_leafsets += list_internal_leafsets(c)
 
     return internal_leafsets
+
+def IL_distance(str1, str2):
+
+    tree1 = build_tree('('+str1+')')
+    tree2 = build_tree('('+str2+')')
+
+    ils1 = list_internal_leafsets(tree1)
+    ils2 = list_internal_leafsets(tree2)
+    
+    ils1 = set([frozenset(sorted(L)) for L in ils1])
+    ils2 = set([frozenset(sorted(L)) for L in ils2])
+
+    return len(ils1.symmetric_difference(ils2))
 
 def gapless_aligned_structs_to_clade_traits():
     """
@@ -416,13 +425,15 @@ def median_based_heuristic(phylo_T,
         and return
     """
     
-    random_key = np.random.choice(str_dict.keys())
+    random_key = np.random.choice(list(str_dict.keys()))
     random_input_str = str_dict[random_key]
 
     queue = [phylo_T]
     while len(queue) > 0:
         node = queue.pop()
         str_dict[node.label] = random_input_str
+        for child in node.children:
+            queue.append(child)
 
     cnt = 0
     keep_going = True
@@ -463,6 +474,8 @@ def median_based_heuristic(phylo_T,
         # do we keep going ? count condition, and whether smth changed
         if cnt < rounds and smth_changed:
             keep_going = True
+
+    return str_dict
 
 def fitch_with_trait_vector(phylo_T, vector_traits):
     """
