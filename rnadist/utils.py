@@ -98,11 +98,11 @@ def C2_ILMedian(input_structures):
 
         C[(i,j)] = np.inf
         for I in input_leaf_sets:
-            if min(I)==i or max(I)==j:
+            if (min(I)==i or max(I)==j) and min(I)>= i and max(I) <=j:
                 score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
                 holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
-                    score_with_I += optimal_score(i_h+1,j_h-1)
+                    score_with_I += optimal_score(i_h,j_h)
 
                 if score_with_I < C[(i,j)]:
                     C[(i,j)] = score_with_I
@@ -112,16 +112,16 @@ def C2_ILMedian(input_structures):
     # auxiliary recursive function 2: backtrace
     def backtrace(i,j):
         for I in input_leaf_sets:
-            if min(I)==i or max(I)==j:
+            if (min(I)==i or max(I)==j) and min(I)>= i and max(I) <=j:
                 score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
                 holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
-                    score_with_I += C[(i_h+1,j_h-1)]
+                    score_with_I += C[(i_h,j_h)]
 
                 if score_with_I==C[(i,j)]:
                     result = [I]
                     for i_h, j_h in IL_holes(I,i,j):
-                        result += backtrace(i_h+1, j_h-1)
+                        result += backtrace(i_h, j_h)
                     return result
 
     
@@ -131,25 +131,39 @@ def C2_ILMedian(input_structures):
         
     ILs = backtrace(0,N-1)
 
+    covered = {}
+    for i in range(N):
+        covered[i]=False
+    for I in ILs:
+        for i in I:
+            assert(not covered[i])
+            covered[i] = True
+    for i in range(N):
+        assert(covered[i])
+
     median = list('.'*N)
 
     for I in ILs:
         median[min(I)] = '('
         median[max(I)] = ')'
 
+    check_well_parenthesized(''.join(median[1:-1]))
     return ''.join(median[1:-1])
 
 def IL_holes(I,i,j):
+    '''
+    Positions of [i,j] not covered by I, regrouped in intervals
+    '''
     I = sorted(I)
     holes = []
     for k in range(len(I)-1):
         if I[k+1]>I[k]+1:
-            holes.append((I[k],I[k+1]))
+            holes.append((I[k]+1,I[k+1]-1))
 
     if i not in I:
-        holes = [(i-1,I[0])]+holes
+        holes = [(i,I[0]-1)]+holes
     if j not in I:
-        holes += [(I[-1],j+1)]
+        holes += [(I[-1]+1,j)]
     return holes
 
 def list_clades(root):
@@ -289,6 +303,8 @@ def depthk_bps(structure, depth=0):
 
 def build_tree(structure):
 
+    # overarching base-pair, should be only one (...(..)..(..)...)
+    #                                           ^                ^
     L0 = depthk_bps(structure)
     assert(len(L0)==1)
 
@@ -296,45 +312,49 @@ def build_tree(structure):
     i,j = L0[0]
     Li = Node(label=i)
     Lj = Node(label=j)
-    root.add_child(Li)
-    root.add_child(Lj)
+    root.add_child(Li) # other child added at the end of the function
 
     # rest of the leaf set
     IL = list(range(i+1,j,1))
 
+    # second-level base-pairs (...(..)..(..)...)
+    #                             ^  ^  ^  ^ 
     L1 = depthk_bps(structure, depth=1)
 
-    for k,l in L1:
-        assert(structure[k]=='(')
-        assert(structure[l]==')')
-        IL = [m for m in IL if m < k or m > l]
-        # creating some leaves
-        for m in IL:
-            if m < k:
-                Lm = Node(label=m)
-                root.add_child(Lm)
+    # iterating over the positions within overarching bp
+    pos = i+1
+    while pos < j:
+        # see if reached a bp of the second-level
+        found = False
+        for k, l in L1:
+            assert(structure[k]=='(')
+            assert(structure[l]==')')
+            if pos==k:
+                found = True
+                bp_to_build = (k,l)
+                break
 
-        sub_structure = list(structure)
-        for index in range(len(sub_structure)):
-            if index < k or index > l:
-                sub_structure[index] = '.'
-        child_kl = build_tree(''.join(sub_structure))
+        if found:
+            k,l = bp_to_build
+            # recursively building subtree
+            sub_structure = list(structure)
+            for index in range(len(sub_structure)):
+                if index < k or index > l:
+                    sub_structure[index] = '.'
+            child_kl = build_tree(''.join(sub_structure))
+            root.add_child(child_kl)
 
-        root.add_child(child_kl)
+            # jumping
+            pos = l+1
+            continue
 
-    # creating the rest of the leaves
-    if len(L1) > 0:
-        M = max([max(k,l) for k,l in L1])
-        for m in IL:
-            if m > M:
-                Lm = Node(label=m)
-                root.add_child(Lm)
-    else:
-        for m in IL:
-            Lm = Node(label=m)
-            root.add_child(Lm)
+        # if none contain it, create leaf
+        Lpos = Node(label=pos)
+        root.add_child(Lpos)
 
+        pos += 1
 
+    root.add_child(Lj)
     return root
     
 def check_well_parenthesized(s):
@@ -431,7 +451,8 @@ def median_based_heuristic(phylo_T,
     queue = [phylo_T]
     while len(queue) > 0:
         node = queue.pop()
-        str_dict[node.label] = random_input_str
+        if len(node.children) > 0:
+            str_dict[node.label] = random_input_str
         for child in node.children:
             queue.append(child)
 

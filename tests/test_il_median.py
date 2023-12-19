@@ -1,4 +1,4 @@
-from rnadist.utils import C2_ILMedian
+from rnadist.utils import C2_ILMedian, check_well_parenthesized
 
 def test1_C2_ILMedian():
 
@@ -25,3 +25,35 @@ def test3_buggy_case():
             '((.)(.)(.))']
     
     m = C2_ILMedian(strs)
+
+def test4():
+    strs = ['.(((((......)))))(((((())))))', '.(((((......)))))(((((())))))', '.(((((......)))))(((((())))))']
+    
+    m = C2_ILMedian(strs)
+
+    check_well_parenthesized(m)
+
+
+def test5():
+#                     1111111111
+#           01234567890123456789
+    strs = ['((((..(())))))....',
+            '((((..(())....))))', 
+            '.(((((.(.).)).))).']
+
+    for s in strs:
+        check_well_parenthesized(s)
+    
+    m = C2_ILMedian(strs)
+
+    check_well_parenthesized(m)
+
+def test6():
+    #       0123456789
+    strs = ['...(.)()', 
+            '(.)(.)()', 
+            '(.)(.)()']
+    
+    m = C2_ILMedian(strs)
+
+    check_well_parenthesized(m)

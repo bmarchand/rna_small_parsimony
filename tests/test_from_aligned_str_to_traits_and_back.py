@@ -20,3 +20,17 @@ def test1():
     assert(trait_vector_to_str(trait_vectors.traits['1'], ordered_clade_list, 10)=='..((..))..')
     assert(trait_vector_to_str(trait_vectors.traits['2'], ordered_clade_list, 10)=='.(.(..))..')
     assert(trait_vector_to_str(trait_vectors.traits['3'], ordered_clade_list, 10)=='..((..).).')
+
+def test2():
+
+    str_dict = {'1' : '...................((((((....((((...((((...................))))(((((((((((...)))))))))))))))......))))))',
+                '2' : '.....((((.....))))............((((((((((......))))))).)))......((((((((((.....))))))))))................',
+                '3' : '.....((((.....)))).((((((....(((((((((((......)))))))..........(((((((((((...)))))))))))))))......))))))'}
+
+    N = len(str_dict['1'])
+    
+    trait_vectors, ordered_clade_list = aligned_gapless_structures_to_trait_vectors(str_dict)
+    
+    assert(trait_vector_to_str(trait_vectors.traits['1'], ordered_clade_list, N)==str_dict['1'])
+    assert(trait_vector_to_str(trait_vectors.traits['2'], ordered_clade_list, N)==str_dict['2'])
+    assert(trait_vector_to_str(trait_vectors.traits['3'], ordered_clade_list, N)==str_dict['3'])

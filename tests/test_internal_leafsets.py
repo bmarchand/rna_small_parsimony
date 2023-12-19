@@ -1,4 +1,4 @@
-from rnadist.utils import list_internal_leafsets, Node
+from rnadist.utils import list_internal_leafsets, Node, build_tree
 
 def test_list_internal_leafsets():
 
@@ -25,3 +25,9 @@ def test_list_internal_leafsets():
     I2.add_child(L5)
     
     assert(list_internal_leafsets(R)==[[1,6],[2,3],[4,5]])
+
+def test_list_internal_leafsets2():
+
+    s = '(...(.)())' 
+    t = build_tree(s)
+    assert(list_internal_leafsets(t)==[[0,1,2,3,9],[4,5,6],[7,8]])
