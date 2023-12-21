@@ -8,7 +8,7 @@ FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/'
 not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
-    for line in open('results/small_parsimony_input/'+family+'_leaf_annotated.tab').readlines():
+    for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
         if line.find('UNKNOWN') >= 0:           
             not_nice.append(family)
             break       
@@ -29,8 +29,10 @@ rule all:
 #        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input/{family}_leaf_annotated.tab', family=FAMILIES)
-        expand('results/small_parsimony_results/{family}_fully_annotated.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES)
+        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(200))),
+        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(200))),
+        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES)
 
 
 def compatible(u,v):
@@ -56,9 +58,11 @@ def check_well_parenthesized(s):
 
 rule median_based_heuristic:
     input:
-        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+        'results/small_parsimony_input_{set}/{id}_leaf_annotated.tab'
     output:
-        'results/small_parsimony_results_median_heuristic/{family}_fully_annotated_median_heuristic.tab'
+        'results/small_parsimony_results_{set}_median_heuristic/{id}_fully_annotated_median_heuristic.tab'
+    wildcard_constraints:
+        set="rfam|random_input"
     run:
         from rnadist.utils import median_based_heuristic
         from rnadist.utils import tree_tab_file_parse
@@ -90,9 +94,11 @@ rule median_based_heuristic:
 
 rule fitch_algorithm_application_on_trait_vectors:
     input:
-        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+        'results/small_parsimony_input_{set}/{id}_leaf_annotated.tab'
     output:
-        'results/small_parsimony_results/{family}_fully_annotated.tab'
+        'results/small_parsimony_results_{set}_fitch_rf/{id}_fully_annotated_fitch_rf.tab'
+    wildcard_constraints:
+        set="rfam|random_input"
     run:
         from rnadist.utils import fitch_with_trait_vector
         from rnadist.utils import aligned_gapless_structures_to_trait_vectors
@@ -127,13 +133,20 @@ rule fitch_algorithm_application_on_trait_vectors:
             for child in node.children[::-1]:
                 queue.append((child, d+1))
 
+rule producing_small_parsimony_random_input:
+    input:
+        'resources/random_input/random_instance_{id}.tab'
+    output:
+        'results/small_parsimony_input_random_input/{id}_leaf_annotated.tab'
+    shell:
+        "cp {input} {output}"
 
-rule producing_small_parsimony_input:
+rule producing_small_parsimony_rfam_input:
     input:
         tree='results/unannotated_tree_files/{family}_unannotated.tab',
         str_alignment='results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
     output:
-        'results/small_parsimony_input/{family}_leaf_annotated.tab'
+        'results/small_parsimony_input_rfam/{family}_leaf_annotated.tab'
     run:
         acc_to_str = {}
         for line in open(input.str_alignment).readlines():

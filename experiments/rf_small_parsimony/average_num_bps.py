@@ -9,10 +9,12 @@ def height(node):
         return 0
     return min([height(child) for child in node.children])+1
 
+DIR_FITCH = 'results/small_parsimony_results_random_input_fitch_rf/'
+
 # FITCH
-for filename in os.listdir('results/small_parsimony_results/'):
+for filename in os.listdir(DIR_FITCH):
     print(filename)
-    lines = open('results/small_parsimony_results/'+filename).readlines()
+    lines = open(DIR_FITCH+filename).readlines()
 
     phylo_T = tree_tab_file_parse(lines)
 
@@ -33,10 +35,13 @@ for filename in os.listdir('results/small_parsimony_results/'):
         for child in node.children:
             queue.append(child)
 
+
+DIR_HEUR = 'results/small_parsimony_results_random_input_median_heuristic/'
+
 # HEURISTIC
-for filename in os.listdir('results/small_parsimony_results_median_heuristic/'):
+for filename in os.listdir(DIR_HEUR):
     print(filename)
-    lines = open('results/small_parsimony_results_median_heuristic/'+filename).readlines()
+    lines = open(DIR_HEUR+filename).readlines()
 
     phylo_T = tree_tab_file_parse(lines)
 
