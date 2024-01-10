@@ -9,7 +9,8 @@ def height(node):
         return 0
     return min([height(child) for child in node.children])+1
 
-DIR_FITCH = 'results/small_parsimony_results_random_input_fitch_rf/'
+DIR_FITCH = 'results/small_parsimony_results_random_input_fitch_rf//'
+OUTNAME = 'figures/average_num_bps_height_random_structures.pdf'
 
 # FITCH
 for filename in os.listdir(DIR_FITCH):
@@ -86,4 +87,4 @@ plt.ylim([0,100])
 plt.xlabel('height in phylogenetic tree')
 plt.ylabel('average number of base pairs')
 plt.legend()
-plt.savefig('figures/average_num_bps_height_heuristic.pdf')
+plt.savefig(OUTNAME)
