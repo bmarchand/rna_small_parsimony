@@ -1,4 +1,4 @@
-from rnadist.utils import C2_ILMedian, check_well_parenthesized
+from rnadist.utils import C2_ILMedian, check_well_parenthesized, median_structure
 
 def test1_C2_ILMedian():
 
@@ -57,3 +57,14 @@ def test6():
     m = C2_ILMedian(strs)
 
     check_well_parenthesized(m)
+
+def test7():
+    
+    strs = ['...(.)()', 
+            '(.)(.)()', 
+            '(.)(.)()']
+
+    m = median_structure(strs, metric='RF')
+
+if __name__=='__main__':
+    test6()

@@ -1,4 +1,5 @@
 import numpy as np
+from rnadist.indset_intgraph import get_max_interval_indset
 
 class Node:
 
@@ -64,9 +65,24 @@ def RFdistance(root1, root2):
 
     return len(unique1)+len(unique2)
 
-
-
 def C2_ILMedian(input_structures):
+    return median_structure(input_structures)
+
+def median_structure(input_structures, metric='IL', input_leafsets_only=True):
+    """
+        General function for computing the median of input RNA structures.
+
+        Input:
+            - input_structures: list of input RNA structures in dot-bracket notation.
+            - metric: (default value=IL) The distance with respect to which the median
+            is computed. Robinson-Foulds if metric=RF, internal leaf-set distance
+            if metric=IL
+            - input_leafsets (default value=True). Whether or not the search space should
+            be restricted to input leaf-sets only, or not.
+        
+        Output:
+            - the median structure in dot-bracket notation.
+    """
 
     # adding virtual overarching base pair
     input_structures = ['('+s+')' for s in input_structures]
@@ -84,11 +100,18 @@ def C2_ILMedian(input_structures):
     # input leaf sets
     input_leaf_sets = []
     input_leaf_set_dict = {}
-    for s in input_structures:
+    for i, s in enumerate(input_structures):
         tree = build_tree(s)
         ILs = list_internal_leafsets(tree)
         input_leaf_sets += ILs
-        input_leaf_set_dict[s] = ILs 
+        input_leaf_set_dict[str(i)+'-'+s] = ILs 
+
+    # input clades
+    input_clades_dict = {}
+    for i, s in enumerate(input_structures):
+        tree = build_tree(s)
+        clades = list_clades(tree)
+        input_clades_dict[str(i)+'-'+s] = clades
 
     # auxiliary recursive function 1: optimal score
 
@@ -98,8 +121,14 @@ def C2_ILMedian(input_structures):
 
         C[(i,j)] = np.inf
         for I in input_leaf_sets:
-            if (min(I)==i or max(I)==j) and min(I)>= i and max(I) <=j:
-                score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
+            if min(I)==i and max(I)<=j:
+                if metric=='IL':
+                    score_with_I = len([key for key, val in input_leaf_set_dict.items() if I not in val])
+                    score_with_I -= len([key for key, val in input_leaf_set_dict.items() if I in val])
+                if metric=='RF':
+                    clade_I = frozenset(list(range(min(I),max(I)+1,1)))
+                    score_with_I = len([key for key, val in input_clades_dict.items() if I not in val])
+                    score_with_I -= len([key for key, val in input_clades_dict.items() if I in val])
                 holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
                     score_with_I += optimal_score(i_h,j_h)
@@ -107,13 +136,31 @@ def C2_ILMedian(input_structures):
                 if score_with_I < C[(i,j)]:
                     C[(i,j)] = score_with_I
 
+        if not input_leafsets_only:
+            # graph and maximum weighted independent set.
+            intervals = []
+            for u in range(i+1,j,1):
+                for v in range(u+1, j,1):
+                    intervals.append((u,v,optimal_score(u,v)))
+
+            sol = get_max_interval_indset(intervals)
+            weight = sum( i[2] for i in sol )
+
+            C[(i,j)] = min(C[(i,j)], len(input_structures)-weight)
+
         return C[(i,j)]
 
     # auxiliary recursive function 2: backtrace
     def backtrace(i,j):
         for I in input_leaf_sets:
-            if (min(I)==i or max(I)==j) and min(I)>= i and max(I) <=j:
-                score_with_I = len([key for key, val in input_leaf_set_dict.items() if I in val])
+            if min(I)==i and max(I)<=j:
+                if metric=='IL':
+                    score_with_I = len([key for key, val in input_leaf_set_dict.items() if I not in val])
+                    score_with_I -= len([key for key, val in input_leaf_set_dict.items() if I in val])
+                if metric=='RF':
+                    score_with_I = len([key for key, val in input_clades_dict.items() if I not in val])
+                    score_with_I -= len([key for key, val in input_clades_dict.items() if I in val])
+
                 holes = IL_holes(I,i,j)
                 for i_h, j_h in holes:
                     score_with_I += C[(i_h,j_h)]
@@ -121,8 +168,29 @@ def C2_ILMedian(input_structures):
                 if score_with_I==C[(i,j)]:
                     result = [I]
                     for i_h, j_h in IL_holes(I,i,j):
-                        result += backtrace(i_h, j_h)
+                        result += backtrace(i_h,j_h)
                     return result
+
+        if not input_leafsets_only:
+            # graph and maximum weighted independent set.
+            intervals = []
+            for u in range(i+1,j,1):
+                for v in range(u+1, j,1):
+                    intervals.append((u,v,-optimal_score(u,v)))
+
+            sol = get_max_interval_indset(intervals)
+            weight = sum( i[2] for i in sol )
+
+            if C[(i,j)]==len(input_structures)-weight:
+                I = list(range(i,j+1,1))
+                for u,v,_ in intervals:
+                    for x in range(u,v+1,1):
+                        I.remove(x)
+
+                result = [I]
+                for i_h, j_h in IL_holes(I,i,j):
+                    result += backtrace(i_h, j_h)
+                return result
 
     
     C = {} # DP table
