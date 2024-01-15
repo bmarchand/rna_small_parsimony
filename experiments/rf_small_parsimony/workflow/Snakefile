@@ -1,6 +1,6 @@
 import os
 
-FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/')]
+FAMILIES = [fam.split('/')[-1].split('_')[0] for fam in os.listdir('results/small_parsimony_input_rfam/')]
 
 # Filtering families to retain only interesting ones, i.e:
 #       1. For which there is agreement between the seed file and tree file compositions
@@ -8,14 +8,17 @@ FAMILIES = [fam.split('.')[0] for fam in os.listdir('resources/seed_alignments/'
 not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
-    for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
-        if line.find('UNKNOWN') >= 0:           
+    try:
+        for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
+            if line.find('UNKNOWN') >= 0:           
+                not_nice.append(family)
+                break       
+            if line.find(':') >= 0:
+                struct = line.split(' ')[-1].rstrip('\n')
+                max_num_bps = max(max_num_bps, struct.count('('))
+        if max_num_bps==0:
             not_nice.append(family)
-            break       
-        if line.find(':') >= 0:
-            struct = line.split(' ')[-1].rstrip('\n')
-            max_num_bps = max(max_num_bps, struct.count('('))
-    if max_num_bps==0:
+    except FileNotFoundError:
         not_nice.append(family)
 
 NICE_FAMILIES = [fam for fam in FAMILIES if fam not in not_nice]
@@ -28,11 +31,15 @@ rule all:
 #        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES),
 #        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
-#        expand('results/small_parsimony_input/{family}_leaf_annotated.tab', family=FAMILIES)
+#        expand('results/small_parsimony_input_rfam/{family}_leaf_annotated.tab', family=FAMILIES),
         expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(200))),
         expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
         expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(200))),
-        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES)
+        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_c1_rf_median_heuristic/{num}_fully_annotated_c1_rf_median_heuristic.tab', num=list(range(200))),
+        expand('results/small_parsimony_results_rfam_c1_rf_median_heuristic/{family}_fully_annotated_c1_rf_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(200))),
+        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
 
 
 def compatible(u,v):
@@ -60,11 +67,12 @@ rule median_based_heuristic:
     input:
         'results/small_parsimony_input_{set}/{id}_leaf_annotated.tab'
     output:
-        'results/small_parsimony_results_{set}_median_heuristic/{id}_fully_annotated_median_heuristic.tab'
+        'results/small_parsimony_results_{set}_{median}_heuristic/{id}_fully_annotated_{median}_heuristic.tab'
     wildcard_constraints:
-        set="rfam|random_input"
+        set="rfam|random_input",
+        median="median|c1_rf_median|unconstrained_il_median"
     run:
-        from rnadist.utils import median_based_heuristic
+        from rnadist.utils import median_based_heuristic, C1_RFMedian, unconstrained_ILMedian
         from rnadist.utils import tree_tab_file_parse
 
         # parsing input tree file
@@ -79,7 +87,12 @@ rule median_based_heuristic:
                 str_dict[acc] = struct
           
         # heuristic call 
-        str_dict = median_based_heuristic(phylo_T, str_dict)
+        if wildcards.median=='median':
+            str_dict = median_based_heuristic(phylo_T, str_dict)
+        if wildcards.median=='c1_rf_median':
+            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=C1_RFMedian)
+        if wildcards.median=='unconstrained_il_median':
+            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=unconstrained_ILMedian)
         
         # output writing
         f = open(output[0],'w')
@@ -187,39 +200,52 @@ rule gapless_final_structure_alignment:
                 d, _ = pairing_info(aligned_seqs[k])
                 structure_annotations[k] = d
 
-        # full partner set: transitive closure of base pair relations
-        # between columns
+        # partner set
         partner_set = {}
-        for _, d in structure_annotations.items():
+        for line_index, d in structure_annotations.items():
             for i,j in d.items():
                 try:
-                    partner_set[i].add(j)
+                    partner_set[i].add((line_index,j))
                 except KeyError:
-                    partner_set[i] = set([j])
+                    partner_set[i] = set([(line_index,j)])
+
+        # full partner set: transitive closure of base pair relations
+        # between columns
+#        partner_set = {}
+#        for _, d in structure_annotations.items():
+#            for i,j in d.items():
+#                try:
+#                    partner_set[i].add(j)
+#                except KeyError:
+#                    partner_set[i] = set([j])
 
 
-        # computing the transitive closure: while there is a change, keep trying
-        changed = True
-        while changed:
-            changed = False
-            # make the partners of the partners partners.
-            for i, S in partner_set.items():
-                for j in S:
-                    if len(S.symmetric_difference(partner_set[j])) > 0:
-                        partner_set[i] = S.union(partner_set[j])
-                        partner_set[j] = S.union(partner_set[j])
-                        changed = True
-                        break
+#        # computing the transitive closure: while there is a change, keep trying
+#        changed = True
+#        while changed:
+#            changed = False
+#            # make the partners of the partners partners.
+#            for i, S in partner_set.items():
+#                for j in S:
+#                    if len(S.symmetric_difference(partner_set[j])) > 0:
+#                        partner_set[i] = S.union(partner_set[j])
+#                        partner_set[j] = S.union(partner_set[j])
+#                        changed = True
+#                        break
                         
         
         columns_to_remove = set([])
+        # for all sequences
         for k in aligned_seqs.keys(): 
+            # for each column
             for l, c in enumerate(aligned_seqs[k]):
                 if c=='-':
+                    # if there is a gap remove column
                     columns_to_remove.add(l)
                     if l in partner_set.keys():
-                        columns_to_remove = columns_to_remove.union(partner_set[l]) 
-
+                        for line, column in partner_set[l]:
+                            # see if there is a partner whose structure annotation character is now '.'
+                            aligned_seqs[line][column] = '.'
         
         for k in aligned_seqs.keys():
             for l in sorted(list(columns_to_remove), key= lambda x : -x):
@@ -238,6 +264,7 @@ rule gapless_final_structure_alignment:
             print(''.join(aligned_seqs[k]), file=f)
 
             if accs[k]=='#=GR':
+                print(''.join(aligned_seqs[k]))
                 check_well_parenthesized(aligned_seqs[k])
 
         print('//', file=f)   

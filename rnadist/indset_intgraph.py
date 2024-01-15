@@ -20,14 +20,19 @@ def find_largest_index_under( sorted_list, x ):
    
 
 def build_solution( B ):
+    #print('input to build_solution', B)
     
     sol = list()
     cur = len(B) - 1 
     
     while cur != None:
-        if B[cur][0] != None:
-            sol.append(B[cur][0])
-        cur = B[cur][1]
+        # this if is for handling case of an empty solution
+        if B[cur]!=None:
+            if B[cur][0] != None:
+                sol.append(B[cur][0])
+            cur = B[cur][1]
+        else:
+            cur = None
         
     return sol
         
@@ -40,6 +45,14 @@ def build_solution( B ):
 # return_weight_only : if True, returns only the weight of the max indset, if False, returns an actual solution
 # already_sorted : set to True if intervals is sorted by right endpoints (in which case the sorting will be skipped), and False otherwise
 def get_max_interval_indset( intervals, return_weight_only = False, already_sorted = False ):
+    #    print('input: ',intervals)
+
+    if len(intervals)==0:
+        if return_weight_only:
+            return 0
+        else:
+            return [] 
+
 
     #sort according to right endpoint
     intervals.sort(key=operator.itemgetter(1))
@@ -107,12 +120,12 @@ def get_max_interval_indset( intervals, return_weight_only = False, already_sort
         sol = build_solution( B ) 
         return sol
             
-
-# format (start, end, weight)
-intervals = [ (1, 3, 4), (5, 7, 5), (8, 9, 3), (6, 8, 2), (2, 7, 10) ]
-sol = get_max_interval_indset( intervals )
-
-weight = sum( i[2] for i in sol )
-
-print( sol )
-print(f"weight = {weight}")
+if __name__=='__main__':
+    # format (start, end, weight)
+    intervals = [ (1, 3, 4), (5, 7, 5), (8, 9, 3), (6, 8, 2), (2, 7, 10) ]
+    sol = get_max_interval_indset( intervals )
+    
+    weight = sum( i[2] for i in sol )
+    
+    print( sol )
+    print(f"weight = {weight}")

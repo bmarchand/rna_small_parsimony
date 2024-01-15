@@ -68,6 +68,13 @@ def RFdistance(root1, root2):
 def C2_ILMedian(input_structures):
     return median_structure(input_structures)
 
+def C1_RFMedian(input_structures):
+    return median_structure(input_structures, metric='RF')
+
+def unconstrained_ILMedian(input_structures):
+    print(input_structures)
+    return median_structure(input_structures, input_leafsets_only=False)
+
 def median_structure(input_structures, metric='IL', input_leafsets_only=True):
     """
         General function for computing the median of input RNA structures.
@@ -113,6 +120,8 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
         clades = list_clades(tree)
         input_clades_dict[str(i)+'-'+s] = clades
 
+
+
     # auxiliary recursive function 1: optimal score
 
     def optimal_score(i,j):
@@ -120,6 +129,8 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
             return C[(i,j)]
 
         C[(i,j)] = np.inf
+
+        # looping over all input leaf sets
         for I in input_leaf_sets:
             if min(I)==i and max(I)<=j:
                 if metric=='IL':
@@ -137,13 +148,9 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
                     C[(i,j)] = score_with_I
 
         if not input_leafsets_only:
-            # graph and maximum weighted independent set.
-            intervals = []
-            for u in range(i+1,j,1):
-                for v in range(u+1, j,1):
-                    intervals.append((u,v,optimal_score(u,v)))
+            # maximum weighted independent set.
+            sol = max_weigthed_is_result(i,j)
 
-            sol = get_max_interval_indset(intervals)
             weight = sum( i[2] for i in sol )
 
             C[(i,j)] = min(C[(i,j)], len(input_structures)-weight)
@@ -152,6 +159,8 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
 
     # auxiliary recursive function 2: backtrace
     def backtrace(i,j):
+
+        # same loop over input leaf-sets
         for I in input_leaf_sets:
             if min(I)==i and max(I)<=j:
                 if metric=='IL':
@@ -165,6 +174,7 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
                 for i_h, j_h in holes:
                     score_with_I += C[(i_h,j_h)]
 
+                # if the score with I chosen is optimal: I part of the solution.
                 if score_with_I==C[(i,j)]:
                     result = [I]
                     for i_h, j_h in IL_holes(I,i,j):
@@ -172,18 +182,15 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
                     return result
 
         if not input_leafsets_only:
-            # graph and maximum weighted independent set.
-            intervals = []
-            for u in range(i+1,j,1):
-                for v in range(u+1, j,1):
-                    intervals.append((u,v,-optimal_score(u,v)))
+            # maximum weighted independent set.
+            sol = max_weigthed_is_result(i,j)
 
-            sol = get_max_interval_indset(intervals)
+            indset_intervals = [(i[0],i[1]) for i in sol]
             weight = sum( i[2] for i in sol )
 
             if C[(i,j)]==len(input_structures)-weight:
                 I = list(range(i,j+1,1))
-                for u,v,_ in intervals:
+                for u,v in indset_intervals:
                     for x in range(u,v+1,1):
                         I.remove(x)
 
@@ -191,7 +198,22 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
                 for i_h, j_h in IL_holes(I,i,j):
                     result += backtrace(i_h, j_h)
                 return result
+    
+    # auxiliary function 3: maximum weighted independent set on (i,j)
+    MWIS = {}
+    def max_weigthed_is_result(i,j):
+        if (i,j) in MWIS.keys():
+            return MWIS[(i,j)]
+            
+        intervals = []
+        for u in range(i+1,j,1):
+            for v in range(u+1, j,1):
+                intervals.append((u,v,-optimal_score(u,v)))
 
+        sol = get_max_interval_indset(intervals)
+
+        MWIS[(i,j)] = sol
+        return MWIS[(i,j)]
     
     C = {} # DP table
 
