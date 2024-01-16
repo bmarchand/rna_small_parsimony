@@ -68,12 +68,35 @@ def RFdistance(root1, root2):
 def C2_ILMedian(input_structures):
     return median_structure(input_structures)
 
-def C1_RFMedian(input_structures):
+def C2_RFMedian(input_structures):
     return median_structure(input_structures, metric='RF')
 
 def unconstrained_ILMedian(input_structures):
     print(input_structures)
     return median_structure(input_structures, input_leafsets_only=False)
+
+def unconstrained_RFMedian(input_structures):
+    
+    count_bps = {}
+
+    for structure in input_structures:
+        d, bps = pairing_info(structure)
+
+        for bp in bps:
+            try:
+                count_bps[bp] += 1
+            except KeyError:
+                count_bps[bp] = 0
+
+    N = len(structure[0])
+    median = list('.' * N)
+
+    for bp, cnt in count_bps.items():
+        if cnt > len(input_structures)/2:
+            median[bp[0]] = '('
+            median[bp[1]] = ')'
+
+    return median
 
 def median_structure(input_structures, metric='IL', input_leafsets_only=True):
     """

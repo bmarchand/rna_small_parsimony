@@ -33,13 +33,13 @@ rule all:
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input_rfam/{family}_leaf_annotated.tab', family=FAMILIES),
         expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(200))),
-        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
         expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(200))),
-        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_c1_rf_median_heuristic/{num}_fully_annotated_c1_rf_median_heuristic.tab', num=list(range(200))),
-        expand('results/small_parsimony_results_rfam_c1_rf_median_heuristic/{family}_fully_annotated_c1_rf_median_heuristic.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(200))),
-        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
+#        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(200))),
+#        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(200))),
+#        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
 
 
 def compatible(u,v):
@@ -70,9 +70,9 @@ rule median_based_heuristic:
         'results/small_parsimony_results_{set}_{median}_heuristic/{id}_fully_annotated_{median}_heuristic.tab'
     wildcard_constraints:
         set="rfam|random_input",
-        median="median|c1_rf_median|unconstrained_il_median"
+        median="median|c2_rf_median|unconstrained_il_median"
     run:
-        from rnadist.utils import median_based_heuristic, C1_RFMedian, unconstrained_ILMedian
+        from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_ILMedian
         from rnadist.utils import tree_tab_file_parse
 
         # parsing input tree file
@@ -89,8 +89,8 @@ rule median_based_heuristic:
         # heuristic call 
         if wildcards.median=='median':
             str_dict = median_based_heuristic(phylo_T, str_dict)
-        if wildcards.median=='c1_rf_median':
-            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=C1_RFMedian)
+        if wildcards.median=='c2_rf_median':
+            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=C2_RFMedian)
         if wildcards.median=='unconstrained_il_median':
             str_dict = median_based_heuristic(phylo_T, str_dict, median_function=unconstrained_ILMedian)
         

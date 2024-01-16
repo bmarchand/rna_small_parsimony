@@ -1,0 +1,38 @@
+CLANS = [line.split('\t')[0] for line in open('resources/Rfam.clanin').readlines()]
+
+import json
+with open('id2family.json') as f:
+    id2family = json.load(f)
+
+family_per_clan = {}
+for line in open('resources/Rfam.clanin').readlines():
+    clan = line.split('\t')[0]
+    family_per_clan[clan] = []
+    for ident in line.rstrip('\n').split('\t')[1:]:
+        family_per_clan[clan].append(ident)
+
+rule all:
+    input:
+        expand('results/median_input/{clan}_input_{method}.tab', clan=CLANS, method=['median_heuristic','c2_rf_median_heuristic','fitch_rf']),
+        expand('results/median_output_{method}/{clan}_root_structure.tab', clan=CLANS, method=['median_heuristic','c2_rf_median_heuristic','fitch_rf'])
+
+
+
+rule median_computation:
+    input:
+        'results/median_input/{clan}_input_{method}.tab', 
+    output:
+        'results/median_output_{method}/{clan}_root_structure.tab'
+    run:
+        input_structures = []
+
+        for fname in input:
+            structure = open(fname).readlines()[0].split(' ')[-1].rstrip('\n')
+            input_structures.append(structures)
+
+        from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_RFMedian
+
+        f = open(output[0], 'w')
+        print(wildcards.clan, file=f)
+        for structure in input_structures:
+            print('\t'+structure, file=f)        
