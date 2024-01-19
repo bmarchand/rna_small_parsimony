@@ -1,5 +1,5 @@
 from rnadist.utils import tree_tab_file_parse
-import os
+import os, subprocess
 
 binary = 0
 non_binary = 0
@@ -32,6 +32,7 @@ for filename in os.listdir('results/unannotated_tree_files/'):
     else:
         max_degrees.append(max_degree)
         non_binary += 1
+        print(filename,'is not binary of size', len(tree_lines))
 
 import numpy as np
 print('number of binary trees:', binary)

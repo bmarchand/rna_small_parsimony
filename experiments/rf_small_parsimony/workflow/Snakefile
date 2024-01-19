@@ -1,6 +1,6 @@
 import os
 
-FAMILIES = [fam.split('/')[-1].split('_')[0] for fam in os.listdir('results/small_parsimony_input_rfam/')]
+FAMILIES = [fam.split('/')[-1].split('.')[0] for fam in os.listdir('resources/tree_files/')]
 
 # Filtering families to retain only interesting ones, i.e:
 #       1. For which there is agreement between the seed file and tree file compositions
@@ -9,19 +9,24 @@ not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
     try:
+        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 100:
+            not_nice.append(family)
+            continue
         for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
-            if line.find('UNKNOWN') >= 0:           
-                not_nice.append(family)
-                break       
+#            if line.find('UNKNOWN') >= 0:           
+#                not_nice.append(family)
+#                break       
             if line.find(':') >= 0:
                 struct = line.split(' ')[-1].rstrip('\n')
                 max_num_bps = max(max_num_bps, struct.count('('))
-        if max_num_bps==0:
+        if max_num_bps==0 or len(struct) > 100:
             not_nice.append(family)
     except FileNotFoundError:
         not_nice.append(family)
 
 NICE_FAMILIES = [fam for fam in FAMILIES if fam not in not_nice]
+print('There are',len(NICE_FAMILIES),'nice families')
+N_random = 100
 
 # the 'final target files' we want to produce
 rule all:
@@ -32,13 +37,13 @@ rule all:
 #        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input_rfam/{family}_leaf_annotated.tab', family=FAMILIES),
-        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(200))),
-#        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(200))),
-#        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(200))),
-#        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
-#        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(200))),
+        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
 #        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
 
 
@@ -72,7 +77,7 @@ rule median_based_heuristic:
         set="rfam|random_input",
         median="median|c2_rf_median|unconstrained_il_median"
     run:
-        from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_ILMedian
+        from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_ILMedian, RFdistance
         from rnadist.utils import tree_tab_file_parse
 
         # parsing input tree file
@@ -85,14 +90,20 @@ rule median_based_heuristic:
                 acc = line.split(' ')[-3].lstrip('\t')
                 struct = line.split(' ')[-1].rstrip('\n')
                 str_dict[acc] = struct
+
+
           
         # heuristic call 
+        until_converge = True
         if wildcards.median=='median':
-            str_dict = median_based_heuristic(phylo_T, str_dict)
+            print('calling heuristic')
+            str_dict = median_based_heuristic(phylo_T, str_dict,until_converge=until_converge)
         if wildcards.median=='c2_rf_median':
-            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=C2_RFMedian)
+            print('calling heuristic')
+            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=C2_RFMedian, distance=RFdistance,until_converge=until_converge)
         if wildcards.median=='unconstrained_il_median':
-            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=unconstrained_ILMedian)
+            print('calling heuristic')
+            str_dict = median_based_heuristic(phylo_T, str_dict, median_function=unconstrained_ILMedian,until_converge=until_converge)
         
         # output writing
         f = open(output[0],'w')
@@ -167,16 +178,36 @@ rule producing_small_parsimony_rfam_input:
                 acc_to_str[acc] = line.split(' ')[-1].rstrip('\n') 
                 continue
             if line not in ['//\n','\n']:
-                acc = line.split(' ')[0] 
+                # handling a specific case
+                if line.startswith('NZ_'):
+                    acc = line.split(' ')[0].lstrip('NZ_') 
+                elif line.startswith('NC_'):
+                    acc = line.split(' ')[0].lstrip('NC_') 
+                elif line.startswith('NW_'):
+                    acc = line.split(' ')[0].lstrip('NW_') 
+                elif line.startswith('NM_'):
+                    acc = line.split(' ')[0].lstrip('NM_') 
+                elif line.startswith('XM_'):
+                    acc = line.split(' ')[0].lstrip('XM_') 
+                elif line.startswith('AC_'):
+                    acc = line.split(' ')[0].lstrip('AC_') 
+                else:
+                    acc = line.split(' ')[0]
         
         f = open(output[0], 'w')
 
         for line in open(input.tree).readlines():
             if len(line.split('_')) > 1:
-                acc = line.split('_')[-1].rstrip('\n')
+                if line.find('URS') >=0:
+                    start = line.find('URS')
+                    line
+                else:
+                    acc = line.split('_')[-1].rstrip('\n')
                 try:
                     print(line.rstrip('\n'),':',acc_to_str[acc], file=f)
                 except KeyError:
+                    print(wildcards.family,': there is an UNKNOWN,',acc)
+                    raise KeyError
                     print(line.rstrip('\n'),':','UNKNOWN', file=f)
             else:
                 f.write(line)
@@ -379,6 +410,14 @@ rule correcting_seed_tree:
     output:
         'results/corrected_tree_files/{family}_corrected.seed_tree'
     run:
+#        from rnadist.utils import preprocess_rfam_ncRNA_tree 
+#
+#        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
+#
+#        tree_desc = preprocess_rfam_ncRNA_tree(tree_desc)        
+#
+#        f = open(output[0], 'w')
+#        print(tree_desc, file=f)
         import re
 
         tree_desc = open(input[0]).readlines()[0].rstrip('\n')
@@ -389,11 +428,10 @@ rule correcting_seed_tree:
         for slash in slash_list:
             problematic_stretch = re.split(r':[.0-9]+', tree_desc[slash:])[0]
             p = min([k for k,c in enumerate(problematic_stretch) if not c.isnumeric() and c not in ['/','-']])
-            print(problematic_stretch)
             problematic_stretch = problematic_stretch[p:]
             to_remove.append(problematic_stretch)
 
-        for rem in to_remove:
+        for rem in sorted(to_remove, key= lambda x : -len(x)):
             tree_desc = tree_desc.replace(rem,'')
         
         f = open(output[0], 'w')
@@ -418,7 +456,11 @@ rule from_newick_to_tab_file:
         while len(queue) > 0:
             current, d = queue.pop()
             if str(current.name).find('/') >= 0:
-                accession = str(current.name).split('_')[-1]   
+                x = str(current.name).find('URS')
+                if x >=0:
+                    accession = str(current.name)[x:] 
+                else:
+                    accession = str(current.name).split('_')[-1]   
                 print('\t'*d+str(num)+'_'+accession, file=f)
             else:
                 print('\t'*d+str(num), file=f)

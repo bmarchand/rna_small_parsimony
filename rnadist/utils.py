@@ -1,4 +1,5 @@
 import numpy as np
+import re
 from rnadist.indset_intgraph import get_max_interval_indset
 
 class Node:
@@ -56,7 +57,11 @@ def pairing_info(ss_cons):
     return d, bps
 
 
-def RFdistance(root1, root2):
+def RFdistance(str1, str2):
+
+    root1 = build_tree('('+str1+')')
+    root2 = build_tree('('+str2+')')
+    
     L1 = list_clades(root1)
     L2 = list_clades(root2)
 
@@ -337,6 +342,16 @@ def list_internal_leafsets(node):
     return internal_leafsets
 
 def IL_distance(str1, str2):
+    """
+        Input:
+            str1, str2: two strings of the same length
+            representing the 
+            two input structures
+            in dot bracket notation e.g: '..((..))..'
+        Output:
+            a real or integer
+
+    """
 
     tree1 = build_tree('('+str1+')')
     tree2 = build_tree('('+str2+')')
@@ -380,7 +395,8 @@ def tree_tab_file_parse(tree_tab_lines):
         children_lines = [[l[1:] for l in child] for child in children_lines]
 
         for child in children_lines:
-            root_node.children.append(tree_tab_file_parse(child))
+            if not child[0].find('UNKNOWN') >=0:
+                root_node.children.append(tree_tab_file_parse(child))
 
     else:
         first_line = tree_tab_lines[0]
@@ -546,35 +562,119 @@ class VectorTraits:
     def add_trait(self, leaf, vector):
         self.traits[leaf] = vector
 
+def best_leaflabel_solution(phylo_T, str_dict, distance=IL_distance):
 
+    # tables
+    c = {}
+    distance_table = {}
+
+    # leaf labels
+    leaf_labels = []
+    structure_set = set([])
+    for label, structure in str_dict.items():
+        if structure not in structure_set:
+            structure_set.add(structure)
+            leaf_labels.append(label)
+
+    def distance_fun(s1,s2):
+        try:
+            return distance_table[(s1,s2)]
+        except KeyError:
+            distance_table[(s1,s2)] = distance(s1,s2)
+            return distance_table[(s1,s2)]
+
+    def optimal(node, leaf1, depth=0):
+        """
+            - node: a node (PhyloNode object)
+            - leaf1: a leaf label (string)
+        """
+#        print(depth*'\t','optimal call on',node.label,'and',leaf1)
+        # if solution cached
+        if (node.label,leaf1) in c.keys():
+            return c[(node.label,leaf1)]
+    
+        # if leaf
+        if node.isleaf:
+            if str_dict[node.label]==str_dict[leaf1]:
+                c[(node.label, leaf1)] = 0
+            else:
+                c[(node.label, leaf1)] = np.inf
+            return c[(node.label, leaf1)]
+
+        c[(node.label,leaf1)] = 0
+        for child in node.children:
+            score = np.inf
+            for leaf2 in leaf_labels:
+                score = min(score, distance_fun(str_dict[leaf1], str_dict[leaf2])+optimal(child, leaf2,depth=depth+1))
+            c[(node.label,leaf1)] += score
+
+        return c[(node.label,leaf1)]
+
+    def backtrace(node, leaf1):
+        """
+            - node: PhyloNode
+
+            decides the label of the children given the ``information/constraint'' that
+            node is label by leaf.
+        """
+        
+        for child in node.children:
+            # finding best leaf2 for child given leaf1 for node
+            opt = np.inf
+            for leaf2 in leaf_labels:
+                score = distance_fun(str_dict[leaf1], str_dict[leaf2]) + c[(child.label, leaf2)]
+                if score < opt:
+                    best_leaf2 = leaf2
+                    str_dict[child.label] = str_dict[best_leaf2]
+                    opt = score
+
+            # recursive call
+            backtrace(child, best_leaf2)
+
+    OPT = np.inf
+    for leaf in leaf_labels:
+        if optimal(phylo_T, leaf) < OPT:
+            OPT = c[(phylo_T.label, leaf)]
+            best_root_leaf = leaf
+            str_dict[phylo_T.label] = str_dict[best_root_leaf]
+
+    backtrace(phylo_T, best_root_leaf)
+
+    return str_dict
+            
+    
 def median_based_heuristic(phylo_T, 
                            str_dict, 
                            rounds=10, 
                            until_converge=False, 
-                           median_function=C2_ILMedian):
+                           median_function=C2_ILMedian,
+                           distance=IL_distance):
     """
         - phylo_T: phylogenetic tree.
         - str_dict: dictionary label -> str. only on leaves at first, to complete
         and return
     """
     
-    random_key = np.random.choice(list(str_dict.keys()))
-    random_input_str = str_dict[random_key]
+#    random_key = np.random.choice(list(str_dict.keys()))
+#    random_input_str = str_dict[random_key]
+#
+#    queue = [phylo_T]
+#    while len(queue) > 0:
+#        node = queue.pop()
+#        if len(node.children) > 0:
+#            str_dict[node.label] = random_input_str
+#        for child in node.children:
+#            queue.append(child)
 
-    queue = [phylo_T]
-    while len(queue) > 0:
-        node = queue.pop()
-        if len(node.children) > 0:
-            str_dict[node.label] = random_input_str
-        for child in node.children:
-            queue.append(child)
+    str_dict = best_leaflabel_solution(phylo_T, str_dict,distance=distance)
 
     cnt = 0
+    print('starting actual median based heuristic')
     keep_going = True
     while keep_going:
         keep_going = False
         cnt += 1
-
+        print('COUNT', cnt)
         queue = [(phylo_T, c) for c in phylo_T.children]
 
         smth_changed = False
@@ -582,31 +682,38 @@ def median_based_heuristic(phylo_T,
             parent, child = queue.pop()
             if len(child.children) > 0:
                 # current sum over edges around node
-                current_cost = IL_distance(str_dict[parent.label], 
+                current_cost = distance(str_dict[parent.label], 
                                            str_dict[child.label])
                 for grand_child in child.children:
-                    current_cost += IL_distance(str_dict[child.label],
+                    current_cost += distance(str_dict[child.label],
                                                 str_dict[grand_child.label])
 
+                print('current_cost:', current_cost)
                 # median computation
                 neighbor_list = [parent] + child.children
                 str_list = [str_dict[n.label] for n in neighbor_list]
                 median = median_function(str_list)
+                print('median in input structures', median in str_list)
+                print('median is original structure', median==str_dict[child.label])
 
                 # new sum over edges around node
-                new_cost = IL_distance(str_dict[parent.label], 
+                new_cost = distance(str_dict[parent.label], 
                                        median)
                 for grand_child in child.children:
-                    new_cost += IL_distance(str_dict[child.label],
+                    new_cost += distance(median,
                                                 str_dict[grand_child.label])
                 
                 # if new cost better, change label of node to median
+                print('new_cost:', current_cost)
                 if new_cost < current_cost:
                     str_dict[child.label] = median
                     smth_changed = True
 
+                for grand_child in child.children:
+                    queue.append((child, grand_child))
+
         # do we keep going ? count condition, and whether smth changed
-        if cnt < rounds and smth_changed:
+        if (cnt < rounds or until_converge) and smth_changed:
             keep_going = True
 
     return str_dict
@@ -703,4 +810,173 @@ def parse_newick(newick_string):
     if newick_string.endswith(';'):
         root = NewickNode(root)
 
+
+def preprocess_rfam_ncRNA_tree(ncrna_tree_line,verbose=False):
+	if verbose:
+		print("\n#####################################")
+		print("### Correction of the ncRNA tree ####")
+		print("#####################################")
+
+	### PROBLEM WITH "(.*)" in leaf names -> cause error in ete3.Tree() reading
+	# replace "(.*)" by "{.*}"
+	# LEAF EXAMPLES:
+	#                                    *     *
+	# 66.80_S80743.1/84-123_Homo_sapiens_(human)[9606].1:0.00055
+	#                                      *        *
+	# 82.00_AC147908.3/69916-69833_Xenopus_(Silurana)_trop..[8364].1:0.15900
+	if verbose:
+		print("\n+ Replace \"(.*)\" -> \"{.*}\" :")
+	i=0
+	for pattern in re.compile('[^,\(\n]\(([^\)\[]{0,50}?)\)').findall(ncrna_tree_line):
+		if verbose>1:
+			print("\t("+pattern+") -> {"+pattern+"}")
+		ncrna_tree_line=ncrna_tree_line.replace("("+pattern+")","{"+pattern+"}")
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+
+	### PROBLEM WITH "(.*[" in leaf names -> cause error in ete3.Tree() reading
+	# replace "(.*[" by "{.*}["
+	# LEAF EXAMPLE:
+	#                                            *
+	# 52.80_AJ318074.1/3315-3429_Cucumis_sativus_(cucumb..[3659].1:0.13306
+	if verbose:
+		print("\n+ Replace \"(.*[\" -> \"{.*}[\"")
+	i=0
+	for pattern in re.compile('[^,\(\n]\(([^\[]{0,50}?)\[').findall(ncrna_tree_line):
+		if verbose>1:
+			print("\t("+pattern+" -> {"+pattern+"}")
+		ncrna_tree_line=ncrna_tree_line.replace("("+pattern,"{"+pattern+"}")
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+	### PROBLEM WITH ")[" in leaf names -> cause error in ete3.Tree() reading
+	# replace ")[" by "}["
+	# ONLY 1 LEAF EXAMPLE:
+	#                                *
+	# _U15164.1/177-216_spider_monkey)[36234].1:0.02519
+	# replace ")[" by "}["
+	if verbose:
+		print("\n+ Replace \")[\" -> \"}[\"")
+	ncrna_tree_line=ncrna_tree_line.replace(")[","}[")
+	
+
+
+	### PROBLEM WITH ":" in leaf names -> cause error in ete3.Tree() reading
+	# replace ":" by "-"
+	# LEAF EXAMPLE:
+	#                                                  *
+	# (77.20_AB035926.1/5989-6104_Escherichia_coli_O157:H7[83334].1:0.00169
+	#                                                         *
+	# ,231.60_FM180568.1/2999022-2999384_Escherichia_coli_O127:H..[574521].1:0.0
+	if verbose:
+		print("\n+ Replace \":\" -> \"-\"")
+	i=0
+	for pattern in re.compile('[,\(][^\[:]{0,80}?:([^\[]{0,50}?)\[').findall(ncrna_tree_line):
+		if verbose>1:
+			print("\t:"+pattern+" -> {"+pattern+"}")
+		ncrna_tree_line=ncrna_tree_line.replace(":"+pattern,"{"+pattern+"}")
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+
+	### PROBLEM WITH ":" in leaf names whit no "[ncbi_id]"" -> cause error in ete3.Tree() reading
+	# replace ":.*:" by "{.*}:"
+	# LEAF EXAMPLE:
+	#                                                                                   *   
+	# (67.20_URS0000D6D3EB_1173780/1-51_Salmonella_enterica_subsp._diarizonae_serovar_60:r.1:0.02084
+	#                                                                                *  *  
+	# ,59.40_URS0000D69B8A_882884/1-50_Salmonella_enterica_subsp._arizonae_serovar_62:z4,.1:0.07437
+	if verbose:
+		print("\n+ Replace \":.*:\" -> \"{.*}:\"")
+	i=0
+	for pattern in re.compile('[,\(][^\(\):]{0,90}?:([^\(\)\[:]{0,25}?):').findall(ncrna_tree_line):
+		if verbose>1:
+			print(":"+pattern+" -> {"+pattern+"}")
+		ncrna_tree_line=ncrna_tree_line.replace(":"+pattern,"{"+pattern+"}")
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+	### PROBLEM WITH ":" in leaf names -> cause error in ete3.Tree() reading
+	# replace ":" by "-"
+	# LEAF EXAMPLE:
+	#                                                                                *   *
+	# ,46.8_URS0001A238E9_1386967/1-26_Salmonella_enterica_subsp._arizonae_serovar_62:z36:-_str._RKS2983[1386967].1:0.0
+	if verbose:
+		print("\n+ Replace \":\" -> \"-\"")
+	i=0
+	for pattern in re.compile('[,\(]([^,\[:]{0,90}?:[^:,\)]{0,40}?):').findall(ncrna_tree_line):
+		modif_pattern=pattern
+		if ":" in pattern:
+			modif_pattern=pattern.replace(':','-')
+		if verbose>1:
+			print(pattern+" -> "+modif_pattern)
+		ncrna_tree_line=ncrna_tree_line.replace(pattern,modif_pattern)
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+	### PROBLEM WITH "," in leaf names -> cause error in ete3.Tree() reading
+	# replace "," by "\'"
+	# LEAF EXAMPLES:
+	#                                                        *
+	# 89.40_ACBA01000078.1/12285-12195_Enterococcus_faecium_1,..[565660].1:0.14182
+	#                                                                               * *
+	# 64.00_URS0000D6AD33_1173951/1-51_Salmonella_enterica_subsp._salamae_serovar_58:l,z1.1:0.02024
+	if verbose:
+		print("\n+ Replace \",\" -> \"\'\"")
+	i=0
+	for pattern in re.compile(',([^,\[:]{0,90}?,[^:]{0,25}?):').findall(ncrna_tree_line):
+		modif_pattern=pattern
+		if "," in pattern:
+			modif_pattern=pattern.replace(',','\'')
+		if verbose>1:
+			print(pattern+" -> "+modif_pattern)
+		ncrna_tree_line=ncrna_tree_line.replace(pattern,modif_pattern)
+		i+=1
+	if verbose:
+		print("COUNT: "+str(i))
+
+	### PROBLEM leaf with no RNA id and species name...
+	# in all cases it seems they are multifurcated nodes
+	# -> remove leaf and ","" or ")" following character 
+	for pattern in re.compile('[^_]([,\(]\.\.\[[0-9]+\]\.[0-9]+\:[0-9]+\.[0-9]+[,\)])').findall(ncrna_tree_line):
+		if verbose>1:
+			print(pattern+" -> "+pattern[0])
+		ncrna_tree_line=ncrna_tree_line.replace(pattern,pattern[0])
+
+
+	# # find and remove in-parenthesis not closed in species name: "_(.*\.\."
+	# for pattern in compile('(_\([^)]{0,50}?\.\.)').findall(ncrna_tree_line):
+	# 	if verbose>1:
+	#		print(pattern)
+	# 	ncrna_tree_line=ncrna_tree_line.replace(pattern,"")
+
+	# # A special case of in-parenthesis not closed in species name
+	# # where there is no 
+	# # -> Escherichia_coli_BL21(D..
+	# for pattern in compile('\(([^)]{0,10}?\.\.)').findall(ncrna_tree_line):
+	# 	if verbose>1:
+	#		print(pattern)
+	# 	ncrna_tree_line=ncrna_tree_line.replace(pattern,"{"+pattern+"}")
+	# 	if verbose>1:
+	#		print(ncrna_tree_line)
+
+	# # find and remove "_(.*)" in species name
+	# for pattern in compile('_\(([^)]{0,50}?)\)').findall(ncrna_tree_line):
+	# 	if verbose>1:
+	#		print(pattern)
+	# 	ncrna_tree_line=ncrna_tree_line.replace(pattern,"{"+pattern+"}")
+
+
+	### LIST OF LEAF NAMES EXAMPLES THAT HAVE TO BE MODIFIED:
+	#
+	#                                                        *
+	# 229.00_BA000007.2/3475602-3475964_Escherichia_coli_O157:H..[386585].1:0.0
+
+	return ncrna_tree_line
 

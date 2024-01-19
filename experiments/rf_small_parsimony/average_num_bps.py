@@ -1,22 +1,53 @@
-from rnadist.utils import tree_tab_file_parse, pairing_info 
+from rnadist.utils import tree_tab_file_parse, pairing_info, depthk_bps 
+import sys
 import os
 
-numbps_values_per_height = {}
-numbps_values_per_height_c2_il_heuristic = {}
-numbps_values_per_height_c2_rf_heuristic = {}
+FAMILIES = [fam.split('/')[-1].split('.')[0] for fam in os.listdir('resources/tree_files/')]
 
-#dataset = 'RFAM'
-dataset = 'random'
-#height_method = 'max'
-height_method = 'min'
+# Filtering families to retain only interesting ones, i.e:
+#       1. For which there is agreement between the seed file and tree file compositions
+#       2. With non empty structures at the leaves
+not_nice = []
+for family in FAMILIES:
+    max_num_bps = 0
+    try:
+        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 100:
+            not_nice.append(family)
+            continue
+        for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
+#            if line.find('UNKNOWN') >= 0:           
+#                not_nice.append(family)
+#                break       
+            if line.find(':') >= 0:
+                struct = line.split(' ')[-1].rstrip('\n')
+                max_num_bps = max(max_num_bps, struct.count('('))
+        if max_num_bps==0 or len(struct) > 100:
+            not_nice.append(family)
+    except FileNotFoundError:
+        not_nice.append(family)
 
-#metric = 'num_bps'
-metric = 'num_loops'
+NICE_FAMILIES = [fam for fam in FAMILIES if fam not in not_nice]
+
+
+if len(sys.argv)==1: 
+    dataset = 'RFAM'
+    #dataset = 'random'
+    height_method = 'max'
+    #height_method = 'min'
+    
+    metric = 'num_bps'
+    #metric = 'num_loops'
+else:
+    height_method = sys.argv[-1]
+    metric = sys.argv[-2]
+    dataset = sys.argv[-3]
 
 if dataset=='RFAM':
     DIR_FITCH = 'results/small_parsimony_results_rfam_fitch_rf/'
     DIR_HEUR_C2_IL = 'results/small_parsimony_results_rfam_median_heuristic/'
     DIR_HEUR_C2_RF = 'results/small_parsimony_results_rfam_c2_rf_median_heuristic/'
+    DIR_HEUR_UNC_IL = 'results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/'
+
     if height_method=='max':
         OUTNAME = 'figures/average_'+metric+'_maxheight_rfam.pdf'
     if height_method=='min':
@@ -26,6 +57,8 @@ if dataset=='random':
     DIR_FITCH = 'results/small_parsimony_results_random_input_fitch_rf/'
     DIR_HEUR_C2_IL = 'results/small_parsimony_results_random_input_median_heuristic/'
     DIR_HEUR_C2_RF = 'results/small_parsimony_results_random_input_c2_rf_median_heuristic/'
+    DIR_HEUR_UNC_IL = 'results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/'
+
     if height_method=='max':
         OUTNAME = 'figures/average_'+metric+'_maxheight_random_structures.pdf'
     if height_method=='min':
@@ -33,17 +66,25 @@ if dataset=='random':
 
 def num_loops(structure):
 
-    d, _ = pairing_info(structure)
+    #d, _ = pairing_info(structure
 
-    def aux(i,j):
-        if j <= i: 
+    def aux(i,j, depth=0):
+        if j <= i+1: 
             return 0
-        if i in d.keys():
-            return 1+aux(i+1,d[i]-1)+aux(d[i]+1,j)
-        else:
-            return aux(i+1,j)
 
-    return aux(0,len(structure)-1)
+        print('\t'*depth+structure[i:j])
+        l0 = depthk_bps(structure[i:j])
+        print('\t'*depth+'l0',l0)
+    
+        cnt = 0
+        if len(l0) > 1:
+            cnt += 1
+        for k,l in l0:
+            cnt += aux(i+k+1,i+l-1, depth=depth+1)
+
+        return cnt
+
+    return aux(0,len(structure))
 
 
 def height(node):
@@ -54,116 +95,92 @@ def height(node):
     if height_method=='min':
         return min([height(child) for child in node.children])+1
 
+def values_per_height_dict(DIR):
+    d = {}
+
+    for filename in os.listdir(DIR):
+        print(filename)
+        if  dataset=='RFAM' and filename.split('_')[0] not in NICE_FAMILIES:
+            continue
+        lines = open(DIR+filename).readlines()
+    
+        phylo_T = tree_tab_file_parse(lines)
+    
+        queue = [phylo_T]
+
+        d_filename = {}
+    
+        while len(queue) > 0:
+            node = queue.pop()
+            h = height(node)
+            if metric=='num_bps':
+                num = node.annotation.count('(')
+            if metric=='num_loops':
+                num = num_loops(node.annotation)
+            assert(node.annotation.count('(')==node.annotation.count(')'))
+            try:
+                d_filename[h].append(num)
+            except KeyError:
+                d_filename[h] = [num]
+    
+            for child in node.children:
+                queue.append(child)
+
+        for h, val in d_filename.items():
+            try:
+                d[h].append(max(val))
+            except KeyError:
+                d[h] = [max(val)]
+
+    return d
 
 # FITCH
-for filename in os.listdir(DIR_FITCH):
-    print(filename)
-    lines = open(DIR_FITCH+filename).readlines()
-
-    phylo_T = tree_tab_file_parse(lines)
-
-    print(phylo_T.label, phylo_T.annotation)
-
-    queue = [phylo_T]
-
-    while len(queue) > 0:
-        node = queue.pop()
-        h = height(node)
-        if metric=='num_bps':
-            num = node.annotation.count('(')
-        if metric=='num_loops':
-            num = num_loops(node.annotation)
-        assert(node.annotation.count('(')==node.annotation.count(')'))
-        try:
-            numbps_values_per_height[h].append(num)
-        except KeyError:
-            numbps_values_per_height[h] = [num]
-
-        for child in node.children:
-            queue.append(child)
-
+numbps_values_per_height = values_per_height_dict(DIR_FITCH)
 
 # HEURISTIC C2_IL
-for filename in os.listdir(DIR_HEUR_C2_IL):
-    print(filename)
-    lines = open(DIR_HEUR_C2_IL+filename).readlines()
-
-    phylo_T = tree_tab_file_parse(lines)
-
-    print(phylo_T.label, phylo_T.annotation)
-
-    queue = [phylo_T]
-
-    while len(queue) > 0:
-        node = queue.pop()
-        h = height(node)
-        num = node.annotation.count('(')
-        assert(node.annotation.count('(')==node.annotation.count(')'))
-        try:
-            numbps_values_per_height_c2_il_heuristic[h].append(num)
-        except KeyError:
-            numbps_values_per_height_c2_il_heuristic[h] = [num]
-
-        for child in node.children:
-            queue.append(child)
+numbps_values_per_height_c2_il_heuristic = values_per_height_dict(DIR_HEUR_C2_IL)
 
 # HEURISTIC C2_RF
-for filename in os.listdir(DIR_HEUR_C2_RF):
-    print(filename)
-    lines = open(DIR_HEUR_C2_RF+filename).readlines()
+numbps_values_per_height_c2_rf_heuristic = values_per_height_dict(DIR_HEUR_C2_RF)
 
-    phylo_T = tree_tab_file_parse(lines)
-
-    print(phylo_T.label, phylo_T.annotation)
-
-    queue = [phylo_T]
-
-    while len(queue) > 0:
-        node = queue.pop()
-        h = height(node)
-        num = node.annotation.count('(')
-        assert(node.annotation.count('(')==node.annotation.count(')'))
-        try:
-            numbps_values_per_height_c2_rf_heuristic[h].append(num)
-        except KeyError:
-            numbps_values_per_height_c2_rf_heuristic[h] = [num]
-
-        for child in node.children:
-            queue.append(child)
-
+# HEURISTIC UNC_IL
+numbps_values_per_height_unconstrained_il_heuristic = values_per_height_dict(DIR_HEUR_UNC_IL)
 
 import matplotlib.pylab as plt
+import seaborn as sns
 import numpy as np
 
-x_values = sorted(numbps_values_per_height.keys())
-#plt.violinplot([numbps_values_per_height[h] for h in x_values], positions=x_values,showmeans=False,showextrema=False)
-medians = [np.median(numbps_values_per_height[h]) for h in x_values]
-plt.plot(x_values, medians, 'o-', label='RF_fitch')
-plt.boxplot([numbps_values_per_height[h] for h in x_values], positions=x_values,sym="")
+sns.set_palette('colorblind')
 
-x_values_heuristic = sorted(numbps_values_per_height_c2_il_heuristic.keys())
-#plt.violinplot([numbps_values_per_height_c2_il_heuristic[h] for h in x_values_heuristic], positions=x_values_heuristic,showmeans=False,showextrema=False)
-medians_heuristic = [np.median(numbps_values_per_height_c2_il_heuristic[h]) for h in x_values_heuristic]
-plt.plot(x_values_heuristic, medians_heuristic, 'o-', label='c2_il_heuristic')
-plt.boxplot([numbps_values_per_height_c2_il_heuristic[h] for h in x_values_heuristic], positions=x_values_heuristic,sym="")
+def plot(d, label):
+    x_values = sorted(d.keys())
+    medians = [np.mean(d[h]) for h in x_values]
+    stds = [np.std(d[h])/np.sqrt(len(d[h])) for h in x_values]
+    plt.errorbar(x_values, 
+                 medians, 
+                 yerr=stds, 
+                 fmt='o-',
+                 label=label,
+                 markersize=3,
+                 capsize=2)
 
-x_values_heuristic = sorted(numbps_values_per_height_c2_rf_heuristic.keys())
-#plt.violinplot([numbps_values_per_height_c2_il_heuristic[h] for h in x_values_heuristic], positions=x_values_heuristic,showmeans=False,showextrema=False)
-medians_heuristic = [np.median(numbps_values_per_height_c2_rf_heuristic[h]) for h in x_values_heuristic]
-plt.plot(x_values_heuristic, medians_heuristic, 'o-', label='c2_rf_heuristic')
-plt.boxplot([numbps_values_per_height_c2_il_heuristic[h] for h in x_values_heuristic], positions=x_values_heuristic,sym="")
+plot(numbps_values_per_height, 'fitch_RF')
+plot(numbps_values_per_height_c2_il_heuristic, 'c2_il_heuristic')
+plot(numbps_values_per_height_c2_rf_heuristic, 'c2_rf_heuristic')
+plot(numbps_values_per_height_unconstrained_il_heuristic, 'unc_heuristic')
 
+fontsize = 15
 
-plt.ylim([0,100])
-plt.xlabel('height in phylogenetic tree')
+plt.xlabel('height in phylogenetic tree',fontsize=fontsize)
+#plt.title(dataset+' x '+metric+' x '+height_method)
 
 
 if metric=='num_bps':
-    plt.ylabel('average number of base pairs')
+    plt.ylabel('average number of base pairs',fontsize=fontsize)
 if metric=='num_loops':
-    plt.ylabel('average number of loops')
+    plt.ylabel('average number of multi-loops',fontsize=fontsize)
 
 
 plt.legend()
 plt.savefig(OUTNAME)
-plt.show()
+#plt.show()

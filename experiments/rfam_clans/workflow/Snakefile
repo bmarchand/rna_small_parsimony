@@ -16,7 +16,22 @@ rule all:
         expand('results/median_input/{clan}_input_{method}.tab', clan=CLANS, method=['median_heuristic','c2_rf_median_heuristic','fitch_rf']),
         expand('results/median_output_{method}/{clan}_root_structure.tab', clan=CLANS, method=['median_heuristic','c2_rf_median_heuristic','fitch_rf'])
 
-
+rule median_input:
+    input:
+        'resources/annotated_family_trees/{clan}/'
+    output:
+        'results/median_input/{clan}_input_{method}.tab' 
+    run:
+        f = open(output[0],'w')
+        print('common ancestor', file=f)
+        for ident in family_per_clan[wildcards.clan]:
+            family = id2family[ident]
+            fname = 'resources/annotated_family_trees/'+wildcards.clan+'/'+family+'_fully_annotated_'+wildcards.method+'.tab'
+            structure = open(fname).readlines()[0].split(' ')[-1].rstrip('\n')
+            print('\t'+family,':',structure, file=f)
+            
+            
+            
 
 rule median_computation:
     input:
@@ -26,13 +41,23 @@ rule median_computation:
     run:
         input_structures = []
 
-        for fname in input:
-            structure = open(fname).readlines()[0].split(' ')[-1].rstrip('\n')
-            input_structures.append(structures)
+        for line in open(input[0]).readlines():
+            if line.startswith('\t'):
+                structure = line.split(' ')[-1].rstrip('\n')
+                input_structures.append(structure)
 
-        from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_RFMedian
+        from rnadist.utils import C2_ILMedian, C2_RFMedian, unconstrained_RFMedian
+
+        if method=='median_heuristic':
+            median = C2_ILMedian(input_structures)
+        if method=='c2_rf_median_heuristic':
+            median = C2_RFMedian(input_structures)
+        if method=='fitch_rf':
+            median = unconstrained_RFMedian(input_structures)
+            
 
         f = open(output[0], 'w')
-        print(wildcards.clan, file=f)
-        for structure in input_structures:
-            print('\t'+structure, file=f)        
+        print(wildcards.clan,':',median, file=f)
+        for line in open(input[0]).readlines():
+            if line.startswith('\t'):
+                f.write(line)
