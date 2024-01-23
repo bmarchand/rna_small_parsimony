@@ -716,9 +716,24 @@ def median_based_heuristic(phylo_T,
         keep_going = False
         cnt += 1
         print('COUNT', cnt)
-        queue = [(phylo_T, c) for c in phylo_T.children]
 
         smth_changed = False
+
+        # handling the case of the root
+        current_cost = 0
+        for c in phylo_T.children:
+            current_cost += distance(str_dict[c.label], str_dict[phylo_T.label])
+        str_list = [str_dict[c.label] for c in phylo_T.children]
+        median = median_function(str_list)
+        new_cost = 0
+        for c in phylo_T.children:
+            new_cost += distance(str_dict[c.label], median)
+
+        if new_cost < current_cost:
+            str_dict[phylo_T.label] = median
+            smth_changed = True
+
+        queue = [(phylo_T, c) for c in phylo_T.children]
         while len(queue) > 0 and not smth_changed:
             parent, child = queue.pop()
             if len(child.children) > 0:

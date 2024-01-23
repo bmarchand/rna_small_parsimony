@@ -10,7 +10,7 @@ not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
     try:
-        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 100:
+        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 10000000000000000:
             not_nice.append(family)
             continue
         for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
@@ -46,7 +46,7 @@ def value_dict(DIR):
 d1 = value_dict(DIR1)
 d2 = value_dict(DIR2)
 d3 = value_dict(DIR3)
-#d4 = value_dict(DIR4)
+d4 = value_dict(DIR4)
 
 fig, axs = plt.subplots(3,3,sharex=True,sharey=True)
 
@@ -55,19 +55,30 @@ for i in range(1,3,1):
         axs[i,j].axis('off')
 
 axs[0,0].scatter([d2[f] for f in NICE_FAMILIES],[d1[f] for f in NICE_FAMILIES],s=6, c='black')
-axs[0,0].set_xlabel('IL with IIL constraint')
-axs[0,0].set_ylabel('unconstrained RF')
+axs[0,0].set_xlabel(r'IL_ILC')
+axs[0,0].set_ylabel(r'RF_$\emptyset$ (still DLC)')
 axs[0,0].plot([0,50],[0,50],color='r')
-axs[0,0].xaxis.set_label_position('top')
+#axs[0,0].xaxis.set_label_position('top')
 
 axs[0,1].scatter([d3[f] for f in NICE_FAMILIES],[d1[f] for f in NICE_FAMILIES],s=6, c='black')
 axs[0,1].plot([0,50],[0,50],color='r')
-axs[0,1].set_xlabel('RF with IIL constraint')
-axs[0,1].xaxis.set_label_position('top')
+#axs[0,1].xaxis.set_label_position('top')
 
 axs[1,1].scatter([d3[f] for f in NICE_FAMILIES],[d2[f] for f in NICE_FAMILIES],s=6, c='black')
 axs[1,1].plot([0,50],[0,50],color='r')
-axs[1,1].set_ylabel('IL with IIL constraint')
+axs[1,1].set_ylabel(r'IL_ILC')
+axs[1,1].set_xlabel(r'RF_ILC')
+
+axs[0,2].scatter([d4[f] for f in NICE_FAMILIES],[d1[f] for f in NICE_FAMILIES],s=6, c='black')
+axs[0,2].plot([0,50],[0,50],color='r')
+
+axs[1,2].scatter([d4[f] for f in NICE_FAMILIES],[d2[f] for f in NICE_FAMILIES],s=6, c='black')
+axs[1,2].plot([0,50],[0,50],color='r')
+
+axs[2,2].scatter([d4[f] for f in NICE_FAMILIES],[d3[f] for f in NICE_FAMILIES],s=6, c='black')
+axs[2,2].plot([0,50],[0,50],color='r')
+axs[2,2].set_ylabel(r'RF_ILC')
+axs[2,2].set_xlabel(r'IL_$\emptyset$')
 
 fig.suptitle('Comparison of the number of base-pairs\n predicted at the root of the phylogeny for each RFAM family')
 plt.show()

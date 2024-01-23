@@ -19,7 +19,7 @@ for family in FAMILIES:
             if line.find(':') >= 0:
                 struct = line.split(' ')[-1].rstrip('\n')
                 max_num_bps = max(max_num_bps, struct.count('('))
-        if max_num_bps==0 or len(struct) > 150:
+        if max_num_bps==0 or len(struct) > 100:
             not_nice.append(family)
     except FileNotFoundError:
         not_nice.append(family)
