@@ -1,6 +1,5 @@
 import os, subprocess
 
-os.system('rm figures/*.pdf')
 
 list_files = []
 for dataset in ['random']:

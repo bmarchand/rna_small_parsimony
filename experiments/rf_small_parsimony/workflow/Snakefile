@@ -9,7 +9,7 @@ not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
     try:
-        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 100:
+        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 10000000:
             not_nice.append(family)
             continue
         for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
@@ -19,7 +19,7 @@ for family in FAMILIES:
             if line.find(':') >= 0:
                 struct = line.split(' ')[-1].rstrip('\n')
                 max_num_bps = max(max_num_bps, struct.count('('))
-        if max_num_bps==0 or len(struct) > 100:
+        if max_num_bps==0 or len(struct) > 150:
             not_nice.append(family)
     except FileNotFoundError:
         not_nice.append(family)
@@ -44,7 +44,7 @@ rule all:
         expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
         expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
 #        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
-#        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
+        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
 
 
 def compatible(u,v):

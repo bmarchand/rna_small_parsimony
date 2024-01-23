@@ -103,6 +103,41 @@ def unconstrained_RFMedian(input_structures):
 
     return median
 
+def filter_dot_only(input_structures):
+
+    dot_positions = []
+
+    N = len(input_structures[0])
+
+    for k in range(N):
+        all_points = True
+        for structure in input_structures:
+            if structure[k]!='.':
+                all_points = False
+                break
+
+        if all_points:
+            dot_positions.append(k)
+
+    new_structures = []
+    for structure in input_structures:
+        l = list(structure)
+        for k in dot_positions:
+            l[k]=''
+
+        new_structures.append(''.join(l))
+
+    return dot_positions, new_structures
+
+def reinsert_dots(median, dot_positions):
+
+    l = list(median)
+
+    for k in sorted(dot_positions, key=lambda x: x):
+        l.insert(k,'.')
+
+    return ''.join(l)
+
 def median_structure(input_structures, metric='IL', input_leafsets_only=True):
     """
         General function for computing the median of input RNA structures.
@@ -118,6 +153,9 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
         Output:
             - the median structure in dot-bracket notation.
     """
+
+    dot_positions, input_structures = filter_dot_only(input_structures)
+    print('reduced input_structures', input_structures)
 
     # adding virtual overarching base pair
     input_structures = ['('+s+')' for s in input_structures]
@@ -264,9 +302,13 @@ def median_structure(input_structures, metric='IL', input_leafsets_only=True):
     for I in ILs:
         median[min(I)] = '('
         median[max(I)] = ')'
+        
 
     check_well_parenthesized(''.join(median[1:-1]))
-    return ''.join(median[1:-1])
+
+    median = ''.join(median[1:-1])
+
+    return reinsert_dots(median, dot_positions) 
 
 def IL_holes(I,i,j):
     '''
@@ -669,7 +711,6 @@ def median_based_heuristic(phylo_T,
     str_dict = best_leaflabel_solution(phylo_T, str_dict,distance=distance)
 
     cnt = 0
-    print('starting actual median based heuristic')
     keep_going = True
     while keep_going:
         keep_going = False
@@ -688,7 +729,6 @@ def median_based_heuristic(phylo_T,
                     current_cost += distance(str_dict[child.label],
                                                 str_dict[grand_child.label])
 
-                print('current_cost:', current_cost)
                 # median computation
                 neighbor_list = [parent] + child.children
                 str_list = [str_dict[n.label] for n in neighbor_list]
@@ -704,6 +744,7 @@ def median_based_heuristic(phylo_T,
                                                 str_dict[grand_child.label])
                 
                 # if new cost better, change label of node to median
+                print('current_cost:', current_cost)
                 print('new_cost:', current_cost)
                 if new_cost < current_cost:
                     str_dict[child.label] = median
