@@ -128,6 +128,6 @@ axs[1].set_title(r'IL_$\emptyset$')
 axs[2].set_title('IL_ILC')
 axs[3].set_title('RF_ILC')
 
-fig.colorbar(qm, ax = axs[:])
-fig.suptitle('Maximum number of base-pairs for ancestral structures as a function of height\n in the phylogeny of RFAM structures (normalized by the maximum number of bps at leaves)',fontsize=12)
+fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
+fig.savefig('figures/rfam_matrix.pdf', bbox_inches='tight')
 plt.show()

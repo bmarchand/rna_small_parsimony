@@ -57,7 +57,7 @@ if dataset=='random':
     DIR_FITCH = 'results/small_parsimony_results_random_input_fitch_rf/'
     DIR_HEUR_C2_IL = 'results/small_parsimony_results_random_input_median_heuristic/'
     DIR_HEUR_C2_RF = 'results/small_parsimony_results_random_input_c2_rf_median_heuristic/'
-    DIR_HEUR_UNC_IL = 'results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/'
+    DIR_HEUR_UNC_IL = 'results/small_parsimony_results_random_input_unconstrained_il_median_heuristic//'
 
     if height_method=='max':
         OUTNAME = 'figures/average_'+metric+'_maxheight_random_structures.pdf'
@@ -164,10 +164,10 @@ def plot(d, label):
                  markersize=3,
                  capsize=2)
 
-plot(numbps_values_per_height, 'fitch_RF')
-plot(numbps_values_per_height_c2_il_heuristic, 'c2_il_heuristic')
-plot(numbps_values_per_height_c2_rf_heuristic, 'c2_rf_heuristic')
-plot(numbps_values_per_height_unconstrained_il_heuristic, 'unc_heuristic')
+plot(numbps_values_per_height, r'RF_$\emptyset$')
+plot(numbps_values_per_height_c2_il_heuristic, 'IL_ILC_heuristic')
+plot(numbps_values_per_height_c2_rf_heuristic, 'RF_ILC_heuristic')
+plot(numbps_values_per_height_unconstrained_il_heuristic, r'IL_$\emptyset$_heuristic')
 
 fontsize = 15
 
