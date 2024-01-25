@@ -690,7 +690,8 @@ def median_based_heuristic(phylo_T,
                            rounds=10, 
                            until_converge=False, 
                            median_function=C2_ILMedian,
-                           distance=IL_distance):
+                           distance=IL_distance,
+                           best_leaf_heuristic_only=False):
     """
         - phylo_T: phylogenetic tree.
         - str_dict: dictionary label -> str. only on leaves at first, to complete
@@ -700,15 +701,20 @@ def median_based_heuristic(phylo_T,
 #    random_key = np.random.choice(list(str_dict.keys()))
 #    random_input_str = str_dict[random_key]
 #
-#    queue = [phylo_T]
-#    while len(queue) > 0:
-#        node = queue.pop()
-#        if len(node.children) > 0:
-#            str_dict[node.label] = random_input_str
-#        for child in node.children:
-#            queue.append(child)
 
     str_dict = best_leaflabel_solution(phylo_T, str_dict,distance=distance)
+    if best_leaf_heuristic_only:
+        return str_dict
+
+    # init: first iteration will see every node as if just changed.
+    next_changed = {}
+    queue = [phylo_T]
+    while len(queue) > 0:
+        node = queue.pop()
+        next_changed[node.label] = True
+        for child in node.children:
+            queue.append(child)
+    
 
     cnt = 0
     keep_going = True
@@ -718,6 +724,11 @@ def median_based_heuristic(phylo_T,
         print('COUNT', cnt)
 
         smth_changed = False
+    
+        # getting info: has a node changed in last round ?
+        changed = {k:v for k,v in next_changed.items()}
+        print([k for k,v in changed.items() if v])
+        next_changed = {k:False for k in next_changed.keys()}
 
         # handling the case of the root
         current_cost = 0
@@ -734,9 +745,14 @@ def median_based_heuristic(phylo_T,
             smth_changed = True
 
         queue = [(phylo_T, c) for c in phylo_T.children]
-        while len(queue) > 0 and not smth_changed:
+        while len(queue) > 0:
             parent, child = queue.pop()
-            if len(child.children) > 0:
+            look_at_it = any([changed[parent.label]]+[changed[c.label] for c in child.children])
+            print([changed[parent.label]]+[changed[c.label] for c in child.children])
+            if len(child.children) > 0 and look_at_it:
+                # HERE look at node and all neighbors. keep going only if one of them has ''changed''
+                
+
                 # current sum over edges around node
                 current_cost = distance(str_dict[parent.label], 
                                            str_dict[child.label])
@@ -763,10 +779,13 @@ def median_based_heuristic(phylo_T,
                 print('new_cost:', current_cost)
                 if new_cost < current_cost:
                     str_dict[child.label] = median
+                    next_changed[child.label] = True
+                    # HERE, could be a step that marks this as ''changed''.
                     smth_changed = True
 
-                for grand_child in child.children:
-                    queue.append((child, grand_child))
+            
+            for grand_child in child.children:
+                queue.append((child, grand_child))
 
         # do we keep going ? count condition, and whether smth changed
         if (cnt < rounds or until_converge) and smth_changed:

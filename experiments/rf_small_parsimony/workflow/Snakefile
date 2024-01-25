@@ -9,7 +9,7 @@ not_nice = []
 for family in FAMILIES:
     max_num_bps = 0
     try:
-        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 10000000:
+        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 1000:
             not_nice.append(family)
             continue
         for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
@@ -19,7 +19,7 @@ for family in FAMILIES:
             if line.find(':') >= 0:
                 struct = line.split(' ')[-1].rstrip('\n')
                 max_num_bps = max(max_num_bps, struct.count('('))
-        if max_num_bps==0 or len(struct) > 100:
+        if max_num_bps==0 or len(struct) > 50:
             not_nice.append(family)
     except FileNotFoundError:
         not_nice.append(family)
@@ -37,14 +37,16 @@ rule all:
 #        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
 #        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
 #        expand('results/small_parsimony_input_rfam/{family}_leaf_annotated.tab', family=FAMILIES),
-        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
-        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
+#        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
+##        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
+##        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
+##        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
+#        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
+#        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
+        expand('results/small_parsimony_results_rfam_re_distance_heuristic/{family}_fully_annotated_re_distance_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_random_input_re_distance_heuristic/{num}_fully_annotated_re_distance_heuristic.tab', num=list(range(N_random)))
 
 
 def compatible(u,v):
@@ -75,9 +77,10 @@ rule median_based_heuristic:
         'results/small_parsimony_results_{set}_{median}_heuristic/{id}_fully_annotated_{median}_heuristic.tab'
     wildcard_constraints:
         set="rfam|random_input",
-        median="median|c2_rf_median|unconstrained_il_median"
+        median="median|c2_rf_median|unconstrained_il_median|re_distance"
     run:
         from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_ILMedian, RFdistance
+        from rnadist.RE_distance import RE_distance
         from rnadist.utils import tree_tab_file_parse
 
         # parsing input tree file
@@ -104,6 +107,9 @@ rule median_based_heuristic:
         if wildcards.median=='unconstrained_il_median':
             print('calling heuristic')
             str_dict = median_based_heuristic(phylo_T, str_dict, median_function=unconstrained_ILMedian,until_converge=until_converge)
+        if wildcards.median=='re_distance':
+            print('calling heuristic')
+            str_dict = median_based_heuristic(phylo_T, str_dict, distance=RE_distance,until_converge=until_converge,best_leaf_heuristic_only=True)
         
         # output writing
         f = open(output[0],'w')

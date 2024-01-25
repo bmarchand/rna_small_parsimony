@@ -7,3 +7,9 @@ experiments/rf_small_parsimony/results/
 experiments/rf_small_parsimony/resources/
 experiments/rf_small_parsimony/.snakemake
 *.tab
+activate/
+bin/
+lib/
+lib64
+pyvenv.cfg
+README.md

@@ -181,7 +181,7 @@ if metric=='num_loops':
     plt.ylabel('average number of multi-loops',fontsize=fontsize)
 
 
-plt.title('Average maximum number of base-pairs\n in predicted ancestral structures (RANDOM dataset)')
+#plt.title('Average maximum number of base-pairs\n in predicted ancestral structures (RANDOM dataset)')
 plt.legend()
 plt.savefig(OUTNAME)
 #plt.show()

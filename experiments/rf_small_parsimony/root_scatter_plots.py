@@ -111,6 +111,7 @@ axs[2,2].errorbar(np.mean([d4[f] for f in NICE_FAMILIES]),np.mean([d3[f] for f i
                   fmt='s',c='red')
 axs[2,2].plot([0,50],[0,50],color='r')
 axs[2,2].set_ylabel('number of bps \n with RF_ILC')
-axs[2,2].set_xlabel('number of bps \n 'r'with IL_$\emptyset$')
+axs[2,2].set_xlabel('number of bps 'r'with IL_$\emptyset$')
 
+fig.savefig('figures/scater_plot_roots.pdf',bbox_inches='tight')
 plt.show()

@@ -84,6 +84,7 @@ DIR = 'results/small_parsimony_results_rfam_fitch_rf/'
 DIR2 = 'results/small_parsimony_results_rfam_median_heuristic/'
 DIR3 = 'results/small_parsimony_results_rfam_c2_rf_median_heuristic/'
 DIR4 = 'results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/'
+DIR5 = 'results/small_parsimony_results_rfam_re_distance_heuristic/'
 
 import numpy as np
 import matplotlib.pylab as plt
@@ -112,11 +113,12 @@ def plot(DIR,ax=None,cbar=False):
 
     return qm
 
-fig, axs = plt.subplots(1,4,sharey=True,figsize=(15,12))
+fig, axs = plt.subplots(1,5,sharey=True,figsize=(15,12))
 plot(DIR, ax=axs[0])
-plot(DIR4, ax=axs[1])
-plot(DIR2, ax=axs[2])
-qm = plot(DIR3, ax=axs[3])
+plot(DIR5, ax=axs[1])
+plot(DIR4, ax=axs[2])
+plot(DIR2, ax=axs[3])
+qm = plot(DIR3, ax=axs[4])
 for ax in axs:
     ax.set(xlabel="height in phylogeny")
     ax.tick_params(axis='y', labelsize=8)
@@ -124,9 +126,10 @@ for ax in axs:
     ax.set_xticks([0,5,10])
     ax.set_xticklabels([0,5,10])
 axs[0].set_title(r'RF_$\emptyset$ (but still DLC)')
-axs[1].set_title(r'IL_$\emptyset$')
-axs[2].set_title('IL_ILC')
-axs[3].set_title('RF_ILC')
+axs[1].set_title(r'RE_$\emptyset$')
+axs[2].set_title(r'IL_$\emptyset$')
+axs[3].set_title('IL_ILC')
+axs[4].set_title('RF_ILC')
 
 fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
 fig.savefig('figures/rfam_matrix.pdf', bbox_inches='tight')
