@@ -1,36 +1,13 @@
 import os
 
-FAMILIES = [fam.split('/')[-1].split('.')[0] for fam in os.listdir('resources/tree_files/')]
-
-# Filtering families to retain only interesting ones, i.e:
-#       1. For which there is agreement between the seed file and tree file compositions
-#       2. With non empty structures at the leaves
-not_nice = []
-for family in FAMILIES:
-    max_num_bps = 0
-    try:
-        if len(open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines()) > 10000000000:
-            not_nice.append(family)
-            continue
-        for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
-#            if line.find('UNKNOWN') >= 0:           
-#                not_nice.append(family)
-#                break       
-            if line.find(':') >= 0:
-                struct = line.split(' ')[-1].rstrip('\n')
-                max_num_bps = max(max_num_bps, struct.count('('))
-        if max_num_bps==0 or len(struct) > 100:
-            not_nice.append(family)
-    except FileNotFoundError:
-        not_nice.append(family)
-
-NICE_FAMILIES = [fam for fam in FAMILIES if fam not in not_nice]
+FILTERED_RFAM = [line.rstrip('\n') for line in open('FILTERED_RFAM').readlines()]
+VERY_FILTERED_RFAM = [line.rstrip('\n') for line in open('VERY_FILTERED_RFAM').readlines()]
 
 divergence = {}
 
 from rnadist.utils import IL_distance
 
-for family in NICE_FAMILIES:
+for family in FILTERED_RFAM:
     print('computing divergence of',family)
     structures = []
     for line in open('results/small_parsimony_input_rfam/'+family+'_leaf_annotated.tab').readlines():
