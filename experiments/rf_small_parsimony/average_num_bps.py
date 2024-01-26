@@ -99,7 +99,6 @@ def values_per_height_dict(DIR):
     d = {}
 
     for filename in os.listdir(DIR):
-        print(filename)
         if  dataset=='RFAM' and filename.split('_')[0] not in NICE_FAMILIES:
             continue
         lines = open(DIR+filename).readlines()
@@ -135,25 +134,30 @@ def values_per_height_dict(DIR):
     return d
 
 # FITCH
+import numpy as np
 numbps_values_per_height = values_per_height_dict(DIR_FITCH)
+print(np.mean(numbps_values_per_height[0]))
 
 # HEURISTIC C2_IL
 numbps_values_per_height_c2_il_heuristic = values_per_height_dict(DIR_HEUR_C2_IL)
+print(np.mean(numbps_values_per_height_c2_il_heuristic[0]))
 
 # HEURISTIC C2_RF
 numbps_values_per_height_c2_rf_heuristic = values_per_height_dict(DIR_HEUR_C2_RF)
+print(np.mean(numbps_values_per_height_c2_rf_heuristic[0]))
 
 # HEURISTIC UNC_IL
 numbps_values_per_height_unconstrained_il_heuristic = values_per_height_dict(DIR_HEUR_UNC_IL)
+print(np.mean(numbps_values_per_height_unconstrained_il_heuristic[0]))
 
 import matplotlib.pylab as plt
 import seaborn as sns
-import numpy as np
 
 sns.set_palette('colorblind')
 
 def plot(d, label):
     x_values = sorted(d.keys())
+    print(x_values)
     medians = [np.mean(d[h]) for h in x_values]
     stds = [np.std(d[h])/np.sqrt(len(d[h])) for h in x_values]
     plt.errorbar(x_values, 
@@ -164,10 +168,10 @@ def plot(d, label):
                  markersize=3,
                  capsize=2)
 
-plot(numbps_values_per_height, r'RF_$\emptyset$')
-plot(numbps_values_per_height_c2_il_heuristic, 'IL_ILC_heuristic')
-plot(numbps_values_per_height_c2_rf_heuristic, 'RF_ILC_heuristic')
-plot(numbps_values_per_height_unconstrained_il_heuristic, r'IL_$\emptyset$_heuristic')
+plot(numbps_values_per_height, r'RF_NC')
+plot(numbps_values_per_height_c2_il_heuristic, 'IL_ILC')
+plot(numbps_values_per_height_c2_rf_heuristic, 'RF_ILC')
+plot(numbps_values_per_height_unconstrained_il_heuristic, 'IL_NC')
 
 fontsize = 15
 
@@ -183,5 +187,6 @@ if metric=='num_loops':
 
 #plt.title('Average maximum number of base-pairs\n in predicted ancestral structures (RANDOM dataset)')
 plt.legend()
+print(OUTNAME)
 plt.savefig(OUTNAME)
-#plt.show()
+plt.show()

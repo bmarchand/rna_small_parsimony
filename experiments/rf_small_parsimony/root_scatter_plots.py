@@ -11,6 +11,7 @@ DIR1 = 'results/small_parsimony_results_rfam_fitch_rf/'
 DIR2 = 'results/small_parsimony_results_rfam_median_heuristic/'
 DIR3 = 'results/small_parsimony_results_rfam_c2_rf_median_heuristic/'
 DIR4 = 'results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/'
+DIR5 = 'results/small_parsimony_results_rfam_re_distance_heuristic/'
 
 def value_dict(DIR):
     d = {}
@@ -28,6 +29,7 @@ d1 = value_dict(DIR1)
 d2 = value_dict(DIR2)
 d3 = value_dict(DIR3)
 d4 = value_dict(DIR4)
+d5 = value_dict(DIR5)
 
 fig, axs = plt.subplots(3,3,sharex=True,sharey=True)
 
@@ -95,7 +97,8 @@ plt.show()
 # 2 IL c2
 # 3 RF c2
 # 4 IL unc
-fig, axs = plt.subplots(1,3,figsize=(9,3))
+# 5 RE
+fig, axs = plt.subplots(1,4,figsize=(12,3))
 
 axs[0].scatter([d4[f] for f in FILTERED_RFAM],[d1[f] for f in FILTERED_RFAM],s=6, c='black')
 axs[0].errorbar(np.mean([d4[f] for f in FILTERED_RFAM]),np.mean([d1[f] for f in FILTERED_RFAM]), 
@@ -124,6 +127,16 @@ axs[2].errorbar(np.mean([d2[f] for f in FILTERED_RFAM]),np.mean([d3[f] for f in 
 axs[2].plot([0,50],[0,50],color='r')
 axs[2].set_xlabel('IL_ILC')
 axs[2].set_ylabel('RF_ILC')
+
+FILTERED_RFAM = [key for key in FILTERED_RFAM if key in d5.keys()]
+axs[3].scatter([d5[f] for f in FILTERED_RFAM],[d2[f] for f in FILTERED_RFAM],s=6, c='black')
+axs[3].errorbar(np.mean([d5[f] for f in FILTERED_RFAM]),np.mean([d2[f] for f in FILTERED_RFAM]), 
+                xerr=np.std([d5[f] for f in FILTERED_RFAM]),
+                yerr=np.std([d2[f] for f in FILTERED_RFAM]),
+                fmt='s',c='red')
+axs[3].plot([0,50],[0,50],color='r')
+axs[3].set_xlabel('RE')
+axs[3].set_ylabel('IL_ILC')
 
 fig.tight_layout()
 fig.savefig('figures/root_scatter_plots2.pdf',bbox_inches='tight')

@@ -22,8 +22,8 @@ for fname in os.listdir('benchmarks/'):
             values['il_nc'].append(float(open('benchmarks/'+fname).readlines()[1].split('\t')[0]))
         if fname.startswith('fitch'):
             values['rf_nc'].append(float(open('benchmarks/'+fname).readlines()[1].split('\t')[0]))
-#        if fname.startswith('re'):
-#            values['re'].append(float(open('benchmarks/'+fname).readlines()[1].split('\t')[0]))
+        if fname.startswith('re'):
+            values['re'].append(float(open('benchmarks/'+fname).readlines()[1].split('\t')[0]))
         
 for k, v in values.items():
     print(k, np.mean(v))

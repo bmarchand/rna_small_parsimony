@@ -13,16 +13,21 @@ small_N_random = 10
 # the 'final target files' we want to produce
 rule all:
     input:
-        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=FILTERED_RFAM),
-        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=FILTERED_RFAM),
-        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=FILTERED_RFAM),
-        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
-        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=FILTERED_RFAM),
-        expand('results/small_parsimony_results_rfam_re_distance_heuristic/{family}_fully_annotated_re_distance_heuristic.tab', family=VERY_FILTERED_RFAM),
+#        expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
+#        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=FILTERED_RFAM),
+#        expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
+#        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=FILTERED_RFAM),
+#        expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
+#        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=FILTERED_RFAM),
+#        expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
+#        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=FILTERED_RFAM),
+#        expand('results/small_parsimony_results_rfam_re_distance_heuristic/{family}_fully_annotated_re_distance_heuristic.tab', family=VERY_FILTERED_RFAM),
 #        expand('results/small_parsimony_results_random_input_re_distance_heuristic/{num}_fully_annotated_re_distance_heuristic.tab', num=list(range(small_N_random)))
+        expand('results/small_parsimony_results_random_input30_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_random_input30_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_random_input30_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
+        expand('results/small_parsimony_results_random_input30_re_distance_heuristic/{num}_fully_annotated_re_distance_heuristic.tab', num=list(range(small_N_random))),
+        expand('results/small_parsimony_results_random_input30_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
 
 
 def compatible(u,v):
@@ -52,7 +57,7 @@ rule median_based_heuristic:
     output:
         'results/small_parsimony_results_{set}_{median}_heuristic/{id}_fully_annotated_{median}_heuristic.tab'
     wildcard_constraints:
-        set="rfam|random_input",
+        set="rfam|random_input|random_input30",
         median="median|c2_rf_median|unconstrained_il_median|re_distance"
     benchmark:
         "benchmarks/{median}_{set}_{id}_benchmark.txt"
@@ -106,7 +111,7 @@ rule fitch_algorithm_application_on_trait_vectors:
     output:
         'results/small_parsimony_results_{set}_fitch_rf/{id}_fully_annotated_fitch_rf.tab'
     wildcard_constraints:
-        set="rfam|random_input"
+        set="rfam|random_input|random_input30"
     benchmark:
         "benchmarks/fitch_{set}_{id}_benchmark.txt"
     run:
@@ -148,6 +153,14 @@ rule producing_small_parsimony_random_input:
         'resources/random_input/random_instance_{id}.tab'
     output:
         'results/small_parsimony_input_random_input/{id}_leaf_annotated.tab'
+    shell:
+        "cp {input} {output}"
+
+rule producing_small_parsimony_random_input_thirty:
+    input:
+        'resources/random_input30/random_instance_{id}.tab'
+    output:
+        'results/small_parsimony_input_random_input30/{id}_leaf_annotated.tab'
     shell:
         "cp {input} {output}"
 

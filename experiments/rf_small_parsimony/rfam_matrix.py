@@ -8,8 +8,8 @@ import json
 with open('divergence.json') as f:
     divergence = json.load(f)
 
-HIGHEST_DIVERGENCE1 = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:50]
-HIGHEST_DIVERGENCE2 = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:50]
+HIGHEST_DIVERGENCE1 = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:10]
+HIGHEST_DIVERGENCE2 = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:10]
 
 height_method = 'max'
 metric='num_bps'
@@ -91,7 +91,7 @@ def plot(DIR,ax=None,cbar=False):
 
     return qm
 
-fig, axs = plt.subplots(1,4,sharey=True,figsize=(15,12))
+fig, axs = plt.subplots(1,4,sharey=True,figsize=(15,4))
 plot(DIR, ax=axs[0])
 plot(DIR4, ax=axs[1])
 plot(DIR2, ax=axs[2])
@@ -107,9 +107,9 @@ axs[1].set_title(r'IL_NC')
 axs[2].set_title('IL_ILC')
 axs[3].set_title('RF_ILC')
 
-fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
+fig.colorbar(qm, ax = axs[:]).set_label(label='number of bps \n (normalized)', size=12)
 fig.savefig('figures/rfam_matrix.pdf', bbox_inches='tight')
-plt.show()
+#plt.show()
 
 # SECOND FIGURE
 def plot(DIR,ax=None,cbar=False):
@@ -134,7 +134,7 @@ def plot(DIR,ax=None,cbar=False):
 
     return qm
 
-fig, axs = plt.subplots(1,5,sharey=True,figsize=(15,12))
+fig, axs = plt.subplots(1,5,sharey=True,figsize=(15,2))
 plot(DIR, ax=axs[0])
 plot(DIR4, ax=axs[1])
 plot(DIR5, ax=axs[2])
@@ -146,12 +146,12 @@ for ax in axs:
     ax.tick_params(axis='x', rotation='default')
     ax.set_xticks([0,5,10])
     ax.set_xticklabels([0,5,10])
-axs[0].set_title(r'RF_$\emptyset$ (but still DLC)')
-axs[1].set_title(r'IL_$\emptyset$')
-axs[2].set_title(r'RE_$\emptyset$')
+axs[0].set_title(r'RF_NC (but still DLC)')
+axs[1].set_title(r'IL_NC')
+axs[2].set_title(r'RE_NC')
 axs[3].set_title('IL_ILC')
 axs[4].set_title('RF_ILC')
 
-fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
+fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs\n (normalized)', size=12)
 fig.savefig('figures/rfam_matrix2.pdf', bbox_inches='tight')
 plt.show()

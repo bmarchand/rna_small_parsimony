@@ -3,20 +3,20 @@ from rnadist.utils import tree_tab_file_parse
 import json
 
 FILTERED_RFAM = [line.rstrip('\n') for line in open('FILTERED_RFAM').readlines()]
-VERY_FILTERED_RFAM = [line.rstrip('\n') for line in open('VERY_FILTERED_RFAM').readlines()]
+#VERY_FILTERED_RFAM = [line.rstrip('\n') for line in open('VERY_FILTERED_RFAM').readlines()]
 import json
 with open('divergence.json') as f:
     divergence = json.load(f)
 
-VERY_FILTERED_RFAM = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:40]
-print(len(VERY_FILTERED_RFAM),'families')
+FILTERED_RFAM = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:20]
+print(len(FILTERED_RFAM),'families')
 
 
-DIR1 = 'results/small_parsimony_results_rfam_c2_rf_median_heuristic/'
-DIR2 = 'results/small_parsimony_results_rfam_re_distance_heuristic/'
-DIR3 = 'results/small_parsimony_results_rfam_median_heuristic/'
-DIR4 = 'results/small_parsimony_results_rfam_fitch_rf/'
-DIR5 = 'results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/'
+DIR1 = 'results/small_parsimony_results_rfam_fitch_rf/'
+DIR2 = 'results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/'
+DIR3 = 'results/small_parsimony_results_rfam_c2_rf_median_heuristic/'
+DIR4 = 'results/small_parsimony_results_rfam_median_heuristic/'
+DIR5 = 'results/small_parsimony_results_rfam_re_distance_heuristic/'
 
 from rnadist.utils import RFdistance, IL_distance
 from rnadist.RE_distance import RE_distance
@@ -54,7 +54,7 @@ def values(DIR, distance):
     vals = []
     for fname in os.listdir(DIR):
         family = fname.split('_')[0]
-        if family not in VERY_FILTERED_RFAM:
+        if family not in FILTERED_RFAM:
             continue
         phylo_T = tree_tab_file_parse(open(DIR+fname).readlines())
 
