@@ -25,7 +25,7 @@ for family in FAMILIES:
                 max_num_bps = max(max_num_bps, struct.count('('))
         if max_num_bps==0:
             no_structure.append(family)
-        if len(struct) > 30:
+        if len(struct) > 50:
             rna_too_large.append(family)
         if len(struct) > 100:
             rna_way_too_large.append(family)

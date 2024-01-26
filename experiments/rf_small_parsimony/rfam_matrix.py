@@ -8,7 +8,8 @@ import json
 with open('divergence.json') as f:
     divergence = json.load(f)
 
-HIGHEST_DIVERGENCE = list(sorted(divergence.keys(), key=lambda x: -divergence[x]))[:60]
+HIGHEST_DIVERGENCE1 = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:50]
+HIGHEST_DIVERGENCE2 = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:50]
 
 height_method = 'max'
 metric='num_bps'
@@ -72,28 +73,71 @@ def plot(DIR,ax=None,cbar=False):
     list_dict = {}
 
     m = 0
-    for family in HIGHEST_DIVERGENCE:
+    for family in HIGHEST_DIVERGENCE2:
         list_dict[family] = values_per_height_dict(DIR,family)
         list_dict[family] = [v/max(list_dict[family]) for v in list_dict[family]]
         m = max(m, len(list_dict[family]))
 
-    T = np.zeros((len(HIGHEST_DIVERGENCE),m))
+    T = np.zeros((len(HIGHEST_DIVERGENCE2),m))
 
-    for i, family in enumerate(HIGHEST_DIVERGENCE):
+    for i, family in enumerate(HIGHEST_DIVERGENCE2):
         for j, v in enumerate(list_dict[family]):
             T[i,j] = v
 
 #    qm = sns.heatmap(T,yticklabels=HIGHEST_DIVERGENCE,cmap=c,ax=ax,cbar=cbar)
     qm = ax.pcolormesh(T,cmap=c,edgecolors='none') 
     ax.set_frame_on(False)
-    ax.set_yticks(list(range(len(HIGHEST_DIVERGENCE))),labels=HIGHEST_DIVERGENCE)
+    ax.set_yticks(list(range(len(HIGHEST_DIVERGENCE2))),labels=HIGHEST_DIVERGENCE2)
+
+    return qm
+
+fig, axs = plt.subplots(1,4,sharey=True,figsize=(15,12))
+plot(DIR, ax=axs[0])
+plot(DIR4, ax=axs[1])
+plot(DIR2, ax=axs[2])
+qm = plot(DIR3, ax=axs[3])
+for ax in axs:
+    ax.set(xlabel="height in phylogeny")
+    ax.tick_params(axis='y', labelsize=8)
+    ax.tick_params(axis='x', rotation='default')
+    ax.set_xticks([0,5,10])
+    ax.set_xticklabels([0,5,10])
+axs[0].set_title(r'RF_NC (but still DLC)')
+axs[1].set_title(r'IL_NC')
+axs[2].set_title('IL_ILC')
+axs[3].set_title('RF_ILC')
+
+fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
+fig.savefig('figures/rfam_matrix.pdf', bbox_inches='tight')
+plt.show()
+
+# SECOND FIGURE
+def plot(DIR,ax=None,cbar=False):
+    list_dict = {}
+
+    m = 0
+    for family in HIGHEST_DIVERGENCE1:
+        list_dict[family] = values_per_height_dict(DIR,family)
+        list_dict[family] = [v/max(list_dict[family]) for v in list_dict[family]]
+        m = max(m, len(list_dict[family]))
+
+    T = np.zeros((len(HIGHEST_DIVERGENCE1),m))
+
+    for i, family in enumerate(HIGHEST_DIVERGENCE1):
+        for j, v in enumerate(list_dict[family]):
+            T[i,j] = v
+
+#    qm = sns.heatmap(T,yticklabels=HIGHEST_DIVERGENCE,cmap=c,ax=ax,cbar=cbar)
+    qm = ax.pcolormesh(T,cmap=c,edgecolors='none') 
+    ax.set_frame_on(False)
+    ax.set_yticks(list(range(len(HIGHEST_DIVERGENCE1))),labels=HIGHEST_DIVERGENCE1)
 
     return qm
 
 fig, axs = plt.subplots(1,5,sharey=True,figsize=(15,12))
 plot(DIR, ax=axs[0])
-plot(DIR5, ax=axs[1])
-plot(DIR4, ax=axs[2])
+plot(DIR4, ax=axs[1])
+plot(DIR5, ax=axs[2])
 plot(DIR2, ax=axs[3])
 qm = plot(DIR3, ax=axs[4])
 for ax in axs:
@@ -103,11 +147,11 @@ for ax in axs:
     ax.set_xticks([0,5,10])
     ax.set_xticklabels([0,5,10])
 axs[0].set_title(r'RF_$\emptyset$ (but still DLC)')
-axs[1].set_title(r'RE_$\emptyset$')
-axs[2].set_title(r'IL_$\emptyset$')
+axs[1].set_title(r'IL_$\emptyset$')
+axs[2].set_title(r'RE_$\emptyset$')
 axs[3].set_title('IL_ILC')
 axs[4].set_title('RF_ILC')
 
 fig.colorbar(qm, ax = axs[:]).set_label(label='number of base-pairs (normalized)', size=16)
-fig.savefig('figures/rfam_matrix.pdf', bbox_inches='tight')
+fig.savefig('figures/rfam_matrix2.pdf', bbox_inches='tight')
 plt.show()

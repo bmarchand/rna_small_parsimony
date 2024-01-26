@@ -86,5 +86,45 @@ axs[2,2].plot([0,50],[0,50],color='r')
 axs[2,2].set_ylabel('number of bps \n with RF_ILC')
 axs[2,2].set_xlabel('number of bps 'r'with IL_$\emptyset$')
 
-fig.savefig('figures/scater_plot_roots.pdf',bbox_inches='tight')
+fig.savefig('figures/root_scatter_plots.pdf',bbox_inches='tight')
+plt.show()
+
+
+# SECOND FIGURE
+# 1 Fitch
+# 2 IL c2
+# 3 RF c2
+# 4 IL unc
+fig, axs = plt.subplots(1,3,figsize=(9,3))
+
+axs[0].scatter([d4[f] for f in FILTERED_RFAM],[d1[f] for f in FILTERED_RFAM],s=6, c='black')
+axs[0].errorbar(np.mean([d4[f] for f in FILTERED_RFAM]),np.mean([d1[f] for f in FILTERED_RFAM]), 
+                xerr=np.std([d4[f] for f in FILTERED_RFAM]),
+                yerr=np.std([d1[f] for f in FILTERED_RFAM]),
+                fmt='s',c='red')
+axs[0].set_xlabel('IL_NC')
+axs[0].set_ylabel('RF_NC')
+axs[0].plot([0,50],[0,50],color='r')
+
+axs[1].scatter([d3[f] for f in FILTERED_RFAM],[d4[f] for f in FILTERED_RFAM],s=6, c='black')
+axs[1].errorbar(np.mean([d3[f] for f in FILTERED_RFAM]),np.mean([d4[f] for f in FILTERED_RFAM]), 
+                xerr=np.std([d3[f] for f in FILTERED_RFAM]),
+                yerr=np.std([d4[f] for f in FILTERED_RFAM]),
+                fmt='s',c='red')
+axs[1].plot([0,50],[0,50],color='r')
+axs[1].set_xlabel('RF_ILC')
+axs[1].set_ylabel('IL_NC')
+
+
+axs[2].scatter([d2[f] for f in FILTERED_RFAM],[d3[f] for f in FILTERED_RFAM],s=6, c='black')
+axs[2].errorbar(np.mean([d2[f] for f in FILTERED_RFAM]),np.mean([d3[f] for f in FILTERED_RFAM]), 
+                xerr=np.std([d2[f] for f in FILTERED_RFAM]),
+                yerr=np.std([d3[f] for f in FILTERED_RFAM]),
+                fmt='s',c='red')
+axs[2].plot([0,50],[0,50],color='r')
+axs[2].set_xlabel('IL_ILC')
+axs[2].set_ylabel('RF_ILC')
+
+fig.tight_layout()
+fig.savefig('figures/root_scatter_plots2.pdf',bbox_inches='tight')
 plt.show()

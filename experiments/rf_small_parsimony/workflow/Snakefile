@@ -13,21 +13,15 @@ small_N_random = 10
 # the 'final target files' we want to produce
 rule all:
     input:
-#        expand('results/unannotated_tree_files/{family}_unannotated.tab', family=FAMILIES),
-#        expand('results/rnafold_input/{family}_rnafold_input.fa', family=FAMILIES),
-#        expand('results/rnafold_output/{family}_rnafold_output.fa', family=FAMILIES),
-#        expand('results/aligned_structures/{family}_aligned_structures.stk', family=FAMILIES),
-#        expand('results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk', family=FAMILIES)
-#        expand('results/small_parsimony_input_rfam/{family}_leaf_annotated.tab', family=FAMILIES),
         expand('results/small_parsimony_results_random_input_fitch_rf/{num}_fully_annotated_fitch_rf.tab', num=list(range(N_random))),
-##        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_rfam_fitch_rf/{family}_fully_annotated_fitch_rf.tab', family=FILTERED_RFAM),
         expand('results/small_parsimony_results_random_input_median_heuristic/{num}_fully_annotated_median_heuristic.tab', num=list(range(N_random))),
-##        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_rfam_median_heuristic/{family}_fully_annotated_median_heuristic.tab', family=FILTERED_RFAM),
         expand('results/small_parsimony_results_random_input_c2_rf_median_heuristic/{num}_fully_annotated_c2_rf_median_heuristic.tab', num=list(range(N_random))),
-##        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=NICE_FAMILIES),
+        expand('results/small_parsimony_results_rfam_c2_rf_median_heuristic/{family}_fully_annotated_c2_rf_median_heuristic.tab', family=FILTERED_RFAM),
         expand('results/small_parsimony_results_random_input_unconstrained_il_median_heuristic/{num}_fully_annotated_unconstrained_il_median_heuristic.tab', num=list(range(N_random))),
-#        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=NICE_FAMILIES)
-#        expand('results/small_parsimony_results_rfam_re_distance_heuristic/{family}_fully_annotated_re_distance_heuristic.tab', family=VERY_FILTERED_RFAM),
+        expand('results/small_parsimony_results_rfam_unconstrained_il_median_heuristic/{family}_fully_annotated_unconstrained_il_median_heuristic.tab', family=FILTERED_RFAM),
+        expand('results/small_parsimony_results_rfam_re_distance_heuristic/{family}_fully_annotated_re_distance_heuristic.tab', family=VERY_FILTERED_RFAM),
 #        expand('results/small_parsimony_results_random_input_re_distance_heuristic/{num}_fully_annotated_re_distance_heuristic.tab', num=list(range(small_N_random)))
 
 
@@ -60,6 +54,8 @@ rule median_based_heuristic:
     wildcard_constraints:
         set="rfam|random_input",
         median="median|c2_rf_median|unconstrained_il_median|re_distance"
+    benchmark:
+        "benchmarks/{median}_{set}_{id}_benchmark.txt"
     run:
         from rnadist.utils import median_based_heuristic, C2_RFMedian, unconstrained_ILMedian, RFdistance
         from rnadist.RE_distance import RE_distance
@@ -111,6 +107,8 @@ rule fitch_algorithm_application_on_trait_vectors:
         'results/small_parsimony_results_{set}_fitch_rf/{id}_fully_annotated_fitch_rf.tab'
     wildcard_constraints:
         set="rfam|random_input"
+    benchmark:
+        "benchmarks/fitch_{set}_{id}_benchmark.txt"
     run:
         from rnadist.utils import fitch_with_trait_vector
         from rnadist.utils import aligned_gapless_structures_to_trait_vectors
@@ -153,314 +151,314 @@ rule producing_small_parsimony_random_input:
     shell:
         "cp {input} {output}"
 
-rule producing_small_parsimony_rfam_input:
-    input:
-        tree='results/unannotated_tree_files/{family}_unannotated.tab',
-        str_alignment='results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
-    output:
-        'results/small_parsimony_input_rfam/{family}_leaf_annotated.tab'
-    run:
-        acc_to_str = {}
-        for line in open(input.str_alignment).readlines():
-            if line.startswith('#=GR'):
-                acc_to_str[acc] = line.split(' ')[-1].rstrip('\n') 
-                continue
-            if line not in ['//\n','\n']:
-                # handling a specific case
-                if line.startswith('NZ_'):
-                    acc = line.split(' ')[0].lstrip('NZ_') 
-                elif line.startswith('NC_'):
-                    acc = line.split(' ')[0].lstrip('NC_') 
-                elif line.startswith('NW_'):
-                    acc = line.split(' ')[0].lstrip('NW_') 
-                elif line.startswith('NM_'):
-                    acc = line.split(' ')[0].lstrip('NM_') 
-                elif line.startswith('XM_'):
-                    acc = line.split(' ')[0].lstrip('XM_') 
-                elif line.startswith('AC_'):
-                    acc = line.split(' ')[0].lstrip('AC_') 
-                else:
-                    acc = line.split(' ')[0]
-        
-        f = open(output[0], 'w')
-
-        for line in open(input.tree).readlines():
-            if len(line.split('_')) > 1:
-                if line.find('URS') >=0:
-                    start = line.find('URS')
-                    line
-                else:
-                    acc = line.split('_')[-1].rstrip('\n')
-                try:
-                    print(line.rstrip('\n'),':',acc_to_str[acc], file=f)
-                except KeyError:
-                    print(wildcards.family,': there is an UNKNOWN,',acc)
-                    raise KeyError
-                    print(line.rstrip('\n'),':','UNKNOWN', file=f)
-            else:
-                f.write(line)
-
-rule gapless_final_structure_alignment:
-    input:
-        'results/aligned_structures/{family}_aligned_structures.stk'        
-    output:
-        'results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
-    run:
-        from rnadist.utils import pairing_info
-        aligned_seqs = {}
-        accs = {}
-        structure_annotations = {}
-        for k, line in enumerate(open(input[0]).readlines()[1:]):
-            if line in ['\n','//\n'] or line.startswith('#=GF ID'):
-                continue
-            accs[k] = line.split(' ')[0]
-            aligned_seqs[k] = list(line.split(' ')[-1].rstrip('\n'))
-            if accs[k] == '#=GR':
-                d, _ = pairing_info(aligned_seqs[k])
-                structure_annotations[k] = d
-
-        # partner set
-        partner_set = {}
-        for line_index, d in structure_annotations.items():
-            for i,j in d.items():
-                try:
-                    partner_set[i].add((line_index,j))
-                except KeyError:
-                    partner_set[i] = set([(line_index,j)])
-
-        # full partner set: transitive closure of base pair relations
-        # between columns
+#rule producing_small_parsimony_rfam_input:
+#    input:
+#        tree='results/unannotated_tree_files/{family}_unannotated.tab',
+#        str_alignment='results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
+#    output:
+#        'results/small_parsimony_input_rfam/{family}_leaf_annotated.tab'
+#    run:
+#        acc_to_str = {}
+#        for line in open(input.str_alignment).readlines():
+#            if line.startswith('#=GR'):
+#                acc_to_str[acc] = line.split(' ')[-1].rstrip('\n') 
+#                continue
+#            if line not in ['//\n','\n']:
+#                # handling a specific case
+#                if line.startswith('NZ_'):
+#                    acc = line.split(' ')[0].lstrip('NZ_') 
+#                elif line.startswith('NC_'):
+#                    acc = line.split(' ')[0].lstrip('NC_') 
+#                elif line.startswith('NW_'):
+#                    acc = line.split(' ')[0].lstrip('NW_') 
+#                elif line.startswith('NM_'):
+#                    acc = line.split(' ')[0].lstrip('NM_') 
+#                elif line.startswith('XM_'):
+#                    acc = line.split(' ')[0].lstrip('XM_') 
+#                elif line.startswith('AC_'):
+#                    acc = line.split(' ')[0].lstrip('AC_') 
+#                else:
+#                    acc = line.split(' ')[0]
+#        
+#        f = open(output[0], 'w')
+#
+#        for line in open(input.tree).readlines():
+#            if len(line.split('_')) > 1:
+#                if line.find('URS') >=0:
+#                    start = line.find('URS')
+#                    line
+#                else:
+#                    acc = line.split('_')[-1].rstrip('\n')
+#                try:
+#                    print(line.rstrip('\n'),':',acc_to_str[acc], file=f)
+#                except KeyError:
+#                    print(wildcards.family,': there is an UNKNOWN,',acc)
+#                    raise KeyError
+#                    print(line.rstrip('\n'),':','UNKNOWN', file=f)
+#            else:
+#                f.write(line)
+#
+#rule gapless_final_structure_alignment:
+#    input:
+#        'results/aligned_structures/{family}_aligned_structures.stk'        
+#    output:
+#        'results/gapless_aligned_structures/{family}_gapless_aligned_structures.stk'        
+#    run:
+#        from rnadist.utils import pairing_info
+#        aligned_seqs = {}
+#        accs = {}
+#        structure_annotations = {}
+#        for k, line in enumerate(open(input[0]).readlines()[1:]):
+#            if line in ['\n','//\n'] or line.startswith('#=GF ID'):
+#                continue
+#            accs[k] = line.split(' ')[0]
+#            aligned_seqs[k] = list(line.split(' ')[-1].rstrip('\n'))
+#            if accs[k] == '#=GR':
+#                d, _ = pairing_info(aligned_seqs[k])
+#                structure_annotations[k] = d
+#
+#        # partner set
 #        partner_set = {}
-#        for _, d in structure_annotations.items():
+#        for line_index, d in structure_annotations.items():
 #            for i,j in d.items():
 #                try:
-#                    partner_set[i].add(j)
+#                    partner_set[i].add((line_index,j))
 #                except KeyError:
-#                    partner_set[i] = set([j])
-
-
-#        # computing the transitive closure: while there is a change, keep trying
-#        changed = True
-#        while changed:
-#            changed = False
-#            # make the partners of the partners partners.
-#            for i, S in partner_set.items():
-#                for j in S:
-#                    if len(S.symmetric_difference(partner_set[j])) > 0:
-#                        partner_set[i] = S.union(partner_set[j])
-#                        partner_set[j] = S.union(partner_set[j])
-#                        changed = True
-#                        break
-                        
-        
-        columns_to_remove = set([])
-        # for all sequences
-        for k in aligned_seqs.keys(): 
-            # for each column
-            for l, c in enumerate(aligned_seqs[k]):
-                if c=='-':
-                    # if there is a gap remove column
-                    columns_to_remove.add(l)
-                    if l in partner_set.keys():
-                        for line, column in partner_set[l]:
-                            # see if there is a partner whose structure annotation character is now '.'
-                            aligned_seqs[line][column] = '.'
-        
-        for k in aligned_seqs.keys():
-            for l in sorted(list(columns_to_remove), key= lambda x : -x):
-                aligned_seqs[k].pop(l)
-        
-        f = open(output[0], 'w')
-    
-        print('# STOCKHOLM 1.0', file=f)
-        print('', file=f)
-        print('#=GF ID aligned structure, columns with gaps removed '+wildcards.family, file=f)
-        print('', file=f)
-
-        W = max([len(v) for _, v in accs.items()])
-        for k in aligned_seqs.keys():
-            print(accs[k].ljust(W, ' '), file=f, end=' ')
-            print(''.join(aligned_seqs[k]), file=f)
-
-            if accs[k]=='#=GR':
-                print(''.join(aligned_seqs[k]))
-                check_well_parenthesized(aligned_seqs[k])
-
-        print('//', file=f)   
-        
-
-
-rule making_structured_sequences_alignments:
-    input:
-        rna_fold_output='results/rnafold_output/{family}_rnafold_output.fa',
-        seed_alignment='resources/seed_alignments/{family}.seed'
-    output:
-        'results/aligned_structures/{family}_aligned_structures.stk'        
-    run:
-        f = open(output[0], 'w')
-    
-        print('# STOCKHOLM 1.0', file=f)
-        print('', file=f)
-        print('#=GF ID aligned structure '+wildcards.family, file=f)
-        print('', file=f)
-        
-        # reading seed file
-        aligned_seqs = {}
-        accs = []
-
-        for line in open(input.seed_alignment).readlines():
-            if line.startswith('#') or line in ['\n','//\n']:
-                continue
-
-            acc = line.split(' ')[0]
-            aligned_seq = line.split(' ')[-1].rstrip('\n')
-
-            aligned_seqs[acc] = aligned_seq
-            accs.append(acc)
-
-        unaligned_structs = {}
-        # reading rnafold output
-        for line in open(input.rna_fold_output).readlines():
-            if line[0]=='>':
-                acc = line.split(' ')[-1].rstrip('\n')
-                continue
-            if len(line.split(' ')) > 1:
-                unaligned_structs[acc] = line.split(' ')[0]
-
-        # putting it all together
-        W = max([len(acc) for acc in accs])
-    
-        for acc in accs:
-            print(acc.ljust(W, ' '), file=f, end=' ')
-            print(aligned_seqs[acc], file=f)
-            print('#=GR'.ljust(W, ' '), file=f, end=' ')
-            aligned_str = ''
-            cnt = 0
-            for c in aligned_seqs[acc]:
-                if c!='-':
-                    aligned_str += unaligned_structs[acc][cnt]
-                    cnt += 1
-                if c=='-':
-                    aligned_str += '-'
-            print(aligned_str, file=f)
-
-        print('//', file=f)   
-        
-
-rule rna_fold_application:
-    input:
-        'results/rnafold_input/{family}_rnafold_input.fa'
-    output:
-        'results/rnafold_output/{family}_rnafold_output.fa'
-    shell:
-        "RNAfold -C {input} >> {output}"
-
-rule making_rna_fold_input:
-    input:
-        'resources/seed_alignments/{family}.seed'
-    output:
-        'results/rnafold_input/{family}_rnafold_input.fa'
-    run:
-        from rnadist.utils import pairing_info
-        SS_CONS_PREF = '#=GC SS_cons' 
-        for line in open(input[0]).readlines():
-            if line.startswith(SS_CONS_PREF):
-                ss_cons = line.split(' ')[-1].rstrip('\n')
-        
-        paired_dict, bps = pairing_info(ss_cons)
-
-        ss_cons = ss_cons.replace('A','.').replace('a','.').replace('B','.').replace('C','.')
-        ss_cons = ss_cons.replace('b','.').replace('c','.').replace('D','.').replace('E','.')
-        ss_cons = ss_cons.replace('d','.').replace('e','.')
-
-        f = open(output[0],'w')
-
-        for line in open(input[0]).readlines():
-            if line.startswith('#') or line in ['\n','//\n']:
-                continue
-
-            acc = line.split(' ')[0]
-            aligned_seq = list(line.split(' ')[-1].rstrip('\n'))
-            local_str = list(ss_cons.replace(':','.').replace('_','.').replace(',','.').replace('-','.').replace('[','(').replace(']',')').replace('{','(').replace('}',')'))
-            for i,j in bps:
-                if not compatible(aligned_seq[i],aligned_seq[j]):
-                    local_str[i] = '.'
-                    local_str[j] = '.'
-
-            print('>',acc,file=f)
-            print(''.join([c for c in aligned_seq if c!='-']), file=f)
-            print(''.join([c for k, c in enumerate(local_str) if aligned_seq[k]!='-']), file=f)
-             
-
-rule correcting_seed_tree:
-    input:
-        'resources/tree_files/{family}.seed_tree'
-    output:
-        'results/corrected_tree_files/{family}_corrected.seed_tree'
-    run:
-#        from rnadist.utils import preprocess_rfam_ncRNA_tree 
+#                    partner_set[i] = set([(line_index,j)])
+#
+#        # full partner set: transitive closure of base pair relations
+#        # between columns
+##        partner_set = {}
+##        for _, d in structure_annotations.items():
+##            for i,j in d.items():
+##                try:
+##                    partner_set[i].add(j)
+##                except KeyError:
+##                    partner_set[i] = set([j])
+#
+#
+##        # computing the transitive closure: while there is a change, keep trying
+##        changed = True
+##        while changed:
+##            changed = False
+##            # make the partners of the partners partners.
+##            for i, S in partner_set.items():
+##                for j in S:
+##                    if len(S.symmetric_difference(partner_set[j])) > 0:
+##                        partner_set[i] = S.union(partner_set[j])
+##                        partner_set[j] = S.union(partner_set[j])
+##                        changed = True
+##                        break
+#                        
+#        
+#        columns_to_remove = set([])
+#        # for all sequences
+#        for k in aligned_seqs.keys(): 
+#            # for each column
+#            for l, c in enumerate(aligned_seqs[k]):
+#                if c=='-':
+#                    # if there is a gap remove column
+#                    columns_to_remove.add(l)
+#                    if l in partner_set.keys():
+#                        for line, column in partner_set[l]:
+#                            # see if there is a partner whose structure annotation character is now '.'
+#                            aligned_seqs[line][column] = '.'
+#        
+#        for k in aligned_seqs.keys():
+#            for l in sorted(list(columns_to_remove), key= lambda x : -x):
+#                aligned_seqs[k].pop(l)
+#        
+#        f = open(output[0], 'w')
+#    
+#        print('# STOCKHOLM 1.0', file=f)
+#        print('', file=f)
+#        print('#=GF ID aligned structure, columns with gaps removed '+wildcards.family, file=f)
+#        print('', file=f)
+#
+#        W = max([len(v) for _, v in accs.items()])
+#        for k in aligned_seqs.keys():
+#            print(accs[k].ljust(W, ' '), file=f, end=' ')
+#            print(''.join(aligned_seqs[k]), file=f)
+#
+#            if accs[k]=='#=GR':
+#                print(''.join(aligned_seqs[k]))
+#                check_well_parenthesized(aligned_seqs[k])
+#
+#        print('//', file=f)   
+#        
+#
+#
+#rule making_structured_sequences_alignments:
+#    input:
+#        rna_fold_output='results/rnafold_output/{family}_rnafold_output.fa',
+#        seed_alignment='resources/seed_alignments/{family}.seed'
+#    output:
+#        'results/aligned_structures/{family}_aligned_structures.stk'        
+#    run:
+#        f = open(output[0], 'w')
+#    
+#        print('# STOCKHOLM 1.0', file=f)
+#        print('', file=f)
+#        print('#=GF ID aligned structure '+wildcards.family, file=f)
+#        print('', file=f)
+#        
+#        # reading seed file
+#        aligned_seqs = {}
+#        accs = []
+#
+#        for line in open(input.seed_alignment).readlines():
+#            if line.startswith('#') or line in ['\n','//\n']:
+#                continue
+#
+#            acc = line.split(' ')[0]
+#            aligned_seq = line.split(' ')[-1].rstrip('\n')
+#
+#            aligned_seqs[acc] = aligned_seq
+#            accs.append(acc)
+#
+#        unaligned_structs = {}
+#        # reading rnafold output
+#        for line in open(input.rna_fold_output).readlines():
+#            if line[0]=='>':
+#                acc = line.split(' ')[-1].rstrip('\n')
+#                continue
+#            if len(line.split(' ')) > 1:
+#                unaligned_structs[acc] = line.split(' ')[0]
+#
+#        # putting it all together
+#        W = max([len(acc) for acc in accs])
+#    
+#        for acc in accs:
+#            print(acc.ljust(W, ' '), file=f, end=' ')
+#            print(aligned_seqs[acc], file=f)
+#            print('#=GR'.ljust(W, ' '), file=f, end=' ')
+#            aligned_str = ''
+#            cnt = 0
+#            for c in aligned_seqs[acc]:
+#                if c!='-':
+#                    aligned_str += unaligned_structs[acc][cnt]
+#                    cnt += 1
+#                if c=='-':
+#                    aligned_str += '-'
+#            print(aligned_str, file=f)
+#
+#        print('//', file=f)   
+#        
+#
+#rule rna_fold_application:
+#    input:
+#        'results/rnafold_input/{family}_rnafold_input.fa'
+#    output:
+#        'results/rnafold_output/{family}_rnafold_output.fa'
+#    shell:
+#        "RNAfold -C {input} >> {output}"
+#
+#rule making_rna_fold_input:
+#    input:
+#        'resources/seed_alignments/{family}.seed'
+#    output:
+#        'results/rnafold_input/{family}_rnafold_input.fa'
+#    run:
+#        from rnadist.utils import pairing_info
+#        SS_CONS_PREF = '#=GC SS_cons' 
+#        for line in open(input[0]).readlines():
+#            if line.startswith(SS_CONS_PREF):
+#                ss_cons = line.split(' ')[-1].rstrip('\n')
+#        
+#        paired_dict, bps = pairing_info(ss_cons)
+#
+#        ss_cons = ss_cons.replace('A','.').replace('a','.').replace('B','.').replace('C','.')
+#        ss_cons = ss_cons.replace('b','.').replace('c','.').replace('D','.').replace('E','.')
+#        ss_cons = ss_cons.replace('d','.').replace('e','.')
+#
+#        f = open(output[0],'w')
+#
+#        for line in open(input[0]).readlines():
+#            if line.startswith('#') or line in ['\n','//\n']:
+#                continue
+#
+#            acc = line.split(' ')[0]
+#            aligned_seq = list(line.split(' ')[-1].rstrip('\n'))
+#            local_str = list(ss_cons.replace(':','.').replace('_','.').replace(',','.').replace('-','.').replace('[','(').replace(']',')').replace('{','(').replace('}',')'))
+#            for i,j in bps:
+#                if not compatible(aligned_seq[i],aligned_seq[j]):
+#                    local_str[i] = '.'
+#                    local_str[j] = '.'
+#
+#            print('>',acc,file=f)
+#            print(''.join([c for c in aligned_seq if c!='-']), file=f)
+#            print(''.join([c for k, c in enumerate(local_str) if aligned_seq[k]!='-']), file=f)
+#             
+#
+#rule correcting_seed_tree:
+#    input:
+#        'resources/tree_files/{family}.seed_tree'
+#    output:
+#        'results/corrected_tree_files/{family}_corrected.seed_tree'
+#    run:
+##        from rnadist.utils import preprocess_rfam_ncRNA_tree 
+##
+##        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
+##
+##        tree_desc = preprocess_rfam_ncRNA_tree(tree_desc)        
+##
+##        f = open(output[0], 'w')
+##        print(tree_desc, file=f)
+#        import re
 #
 #        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
 #
-#        tree_desc = preprocess_rfam_ncRNA_tree(tree_desc)        
+#        slash_list = [k for k, c in enumerate(tree_desc) if c=='/']       
 #
+#        to_remove = []
+#        for slash in slash_list:
+#            problematic_stretch = re.split(r':[.0-9]+', tree_desc[slash:])[0]
+#            p = min([k for k,c in enumerate(problematic_stretch) if not c.isnumeric() and c not in ['/','-']])
+#            problematic_stretch = problematic_stretch[p:]
+#            to_remove.append(problematic_stretch)
+#
+#        for rem in sorted(to_remove, key= lambda x : -len(x)):
+#            tree_desc = tree_desc.replace(rem,'')
+#        
 #        f = open(output[0], 'w')
 #        print(tree_desc, file=f)
-        import re
-
-        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
-
-        slash_list = [k for k, c in enumerate(tree_desc) if c=='/']       
-
-        to_remove = []
-        for slash in slash_list:
-            problematic_stretch = re.split(r':[.0-9]+', tree_desc[slash:])[0]
-            p = min([k for k,c in enumerate(problematic_stretch) if not c.isnumeric() and c not in ['/','-']])
-            problematic_stretch = problematic_stretch[p:]
-            to_remove.append(problematic_stretch)
-
-        for rem in sorted(to_remove, key= lambda x : -len(x)):
-            tree_desc = tree_desc.replace(rem,'')
-        
-        f = open(output[0], 'w')
-        print(tree_desc, file=f)
-            
-
-rule from_newick_to_tab_file:
-    input:
-        'results/corrected_tree_files/{family}_corrected.seed_tree',
-        'resources/seed_alignments/{family}.seed'
-    output:
-        'results/unannotated_tree_files/{family}_unannotated.tab'
-    run:
-        import newick
-        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
-        tree = newick.loads(tree_desc)    
-
-        f = open(output[0],'w')     
-    
-        queue = [(tree[0],0)]
-        num = 0
-        while len(queue) > 0:
-            current, d = queue.pop()
-            if str(current.name).find('/') >= 0:
-                x = str(current.name).find('URS')
-                if x >=0:
-                    accession = str(current.name)[x:] 
-                else:
-                    accession = str(current.name).split('_')[-1]   
-                print('\t'*d+str(num)+'_'+accession, file=f)
-            else:
-                print('\t'*d+str(num), file=f)
-#            if str(current.name).find('_') >= 0:
-#                first_part = str(current.name).split('_')[0]
-#                second_part = str(current.name).split(first_part+'_')[-1] 
-#                final_print = ''.join([first_part, second_part])
+#            
+#
+#rule from_newick_to_tab_file:
+#    input:
+#        'results/corrected_tree_files/{family}_corrected.seed_tree',
+#        'resources/seed_alignments/{family}.seed'
+#    output:
+#        'results/unannotated_tree_files/{family}_unannotated.tab'
+#    run:
+#        import newick
+#        tree_desc = open(input[0]).readlines()[0].rstrip('\n')
+#        tree = newick.loads(tree_desc)    
+#
+#        f = open(output[0],'w')     
+#    
+#        queue = [(tree[0],0)]
+#        num = 0
+#        while len(queue) > 0:
+#            current, d = queue.pop()
+#            if str(current.name).find('/') >= 0:
+#                x = str(current.name).find('URS')
+#                if x >=0:
+#                    accession = str(current.name)[x:] 
+#                else:
+#                    accession = str(current.name).split('_')[-1]   
+#                print('\t'*d+str(num)+'_'+accession, file=f)
 #            else:
-#                final_print = str(current.name)
-#            print('\t'*d+str(num)+'_'+final_print, file=f)
-            num += 1
-            for child in current.descendants:
-                queue = queue+[(child, d+1)]
-        
-        f.close()
+#                print('\t'*d+str(num), file=f)
+##            if str(current.name).find('_') >= 0:
+##                first_part = str(current.name).split('_')[0]
+##                second_part = str(current.name).split(first_part+'_')[-1] 
+##                final_print = ''.join([first_part, second_part])
+##            else:
+##                final_print = str(current.name)
+##            print('\t'*d+str(num)+'_'+final_print, file=f)
+#            num += 1
+#            for child in current.descendants:
+#                queue = queue+[(child, d+1)]
+#        
+#        f.close()
