@@ -8,8 +8,8 @@ import json
 with open('divergence.json') as f:
     divergence = json.load(f)
 
-HIGHEST_DIVERGENCE1 = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:10]
-HIGHEST_DIVERGENCE2 = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:10]
+HIGHEST_DIVERGENCE1 = list(sorted(VERY_FILTERED_RFAM, key=lambda x: -divergence[x]))[:30]
+HIGHEST_DIVERGENCE2 = list(sorted(FILTERED_RFAM, key=lambda x: -divergence[x]))[:30]
 
 height_method = 'max'
 metric='num_bps'
