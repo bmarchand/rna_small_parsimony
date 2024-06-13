@@ -111,7 +111,7 @@ rule fitch_algorithm_application_on_trait_vectors:
     output:
         'results/small_parsimony_results_{set}_fitch_rf/{id}_fully_annotated_fitch_rf.tab'
     wildcard_constraints:
-        set="rfam|random_input|random_input30"
+        set="small_test|rfam|random_input|random_input30"
     benchmark:
         "benchmarks/fitch_{set}_{id}_benchmark.txt"
     run:
